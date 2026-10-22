@@ -1,0 +1,7 @@
+build/
+libs/
+rogue-shots/
+*.class
+.idea/
+*.iml
+.vscode/
