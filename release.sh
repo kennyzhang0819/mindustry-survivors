@@ -26,3 +26,6 @@ echo "1. Open https://github.com/kennyzhang0819/mindustry-survivors/releases/new
 echo "2. Write a few lines about what's new."
 echo "3. Drag in $(pwd -W 2>/dev/null || pwd)/build/MindustrySurvivors.jar"
 echo "4. Press Publish release."
+echo
+echo "First release only: in the repo's Settings, under Social preview, upload $(pwd -W 2>/dev/null || pwd)/art/banner.png."
+echo "That's the banner mod lists show for the repo."

@@ -25,6 +25,63 @@ def need(path):
     return path
 
 
+def letter(ch):
+    s, h = STROKE, FACE_H
+    mid = (h - s) // 2
+    if ch == "I":
+        w = s
+        return w, [[(0, 0), (w, 0), (w, h), (0, h)]], []
+    if ch == "S":
+        w, c = 62, 12
+        return w, [
+            [(c, 0), (w, 0), (w, s), (s, s), (s, mid), (w - c, mid), (w, mid + c), (w, h - c), (w - c, h), (0, h), (0, h - s), (w - s, h - s), (w - s, mid + s), (c, mid + s), (0, mid + s - c), (0, c)],
+        ], []
+    if ch == "U":
+        w, c = 62, 14
+        return w, [[(0, 0), (s, 0), (s, h - s), (w - s, h - s), (w - s, 0), (w, 0), (w, h - c), (w - c, h), (c, h), (0, h - c)]], []
+    if ch == "O":
+        w, c = 62, 14
+        return w, [[(c, 0), (w - c, 0), (w, c), (w, h - c), (w - c, h), (c, h), (0, h - c), (0, c)]], [[(s, s), (w - s, s), (w - s, h - s), (s, h - s)]]
+    if ch == "R":
+        w, c = 62, 14
+        leg = mid + s
+        return w, [
+            [(0, 0), (w - c, 0), (w, c), (w, leg - 4), (w - 10, leg + 6), (w, h), (w - s - 8, h), (s + 8, leg), (s, leg), (s, h), (0, h)],
+        ], [[(s, s), (w - s, s), (w - s, mid), (s, mid)]]
+    if ch == "V":
+        w = 66
+        return w, [[(0, 0), (s, 0), (s, 40), (w // 2, 40 + (w // 2 - s)), (w - s, 40), (w - s, 0), (w, 0), (w, 47), (w // 2, h), (0, 47)]], []
+    raise ValueError(ch)
+
+
+def word(text, face, side):
+    widths = [letter(ch)[0] for ch in text]
+    width = sum(widths) + GAP * (len(text) - 1) + 2 * EDGE
+    height = FACE_H + DROP + 2 * EDGE
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    x = EDGE
+    for ch in text:
+        w, solid, holes = letter(ch)
+        for poly in solid:
+            draw.polygon([(x + px, EDGE + py) for px, py in poly], fill=255)
+        for poly in holes:
+            draw.polygon([(x + px, EDGE + py) for px, py in poly], fill=0)
+        x += w + GAP
+    f = np.array(mask) > 0
+    shifted = np.zeros_like(f)
+    for d in range(1, DROP + 1):
+        shifted[d:] |= f[:-d]
+    g = shifted & ~f
+    body = f | g
+    out = dilate(body, EDGE) & ~body
+    img = np.zeros((height, width, 4), np.uint8)
+    img[out] = OUTLINE
+    img[g] = side
+    img[f] = face
+    return Image.fromarray(img, "RGBA")
+
+
 def dilate(m, r):
     out = m.copy()
     h, w = m.shape
@@ -66,6 +123,40 @@ def draw_title(c, cx, top, width):
         hal.putalpha(blur(t.split()[3], 10 * k).point(lambda v: int(v * 0.5)))
         stamp(c, hal, cx, y)
         stamp(c, t, cx, y)
+
+
+def logo_title():
+    logo = Image.open(need(os.path.join(SRC, "ui", "logo.png"))).convert("RGBA")
+    sub = word("SURVIVORS", YELLOW, ORANGE)
+    width = max(logo.width, sub.width)
+    overlap = EDGE + 2
+    out = Image.new("RGBA", (width, logo.height + sub.height - overlap), (0, 0, 0, 0))
+    out.alpha_composite(sub, ((width - sub.width) // 2, logo.height - overlap))
+    out.alpha_composite(logo, ((width - logo.width) // 2, 0))
+    return out
+
+
+def banner():
+    art = os.path.join(ROOT, "art")
+    os.makedirs(art, exist_ok=True)
+    logo = logo_title()
+    logo.save(os.path.join(art, "title.png"))
+    print("Wrote " + os.path.join(art, "title.png"))
+
+    w, h = 1280, 640
+    bg = background(w, h, np.random.default_rng(11))
+    k = w * 0.72 / logo.width
+    big = logo.resize((round(logo.width * k), round(logo.height * k)), Image.LANCZOS)
+    pad = 60
+    alpha = Image.new("L", (big.width + 2 * pad, big.height + 2 * pad), 0)
+    alpha.paste(big.split()[3], (pad, pad))
+    shadow = Image.new("RGBA", alpha.size, (10, 0, 4, 0))
+    shadow.putalpha(blur(alpha, 14).point(lambda v: min(200, int(v * 1.4))))
+    stamp(bg, shadow, w / 2 + 6, h / 2 + 12)
+    stamp(bg, big, w / 2, h / 2)
+    path = os.path.join(art, "banner.png")
+    bg.convert("RGB").save(path)
+    print("Wrote " + path)
 
 
 def sprite(rel):
@@ -297,6 +388,8 @@ def compare(folder):
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "compare":
         compare(sys.argv[2])
+    elif len(sys.argv) > 1 and sys.argv[1] == "banner":
+        banner()
     else:
         title()
         icon(sys.argv[1] if len(sys.argv) > 1 else "duo")

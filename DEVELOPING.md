@@ -24,7 +24,7 @@ Set `SURVIVORS_AUTOTEST=chase` for a stress test: it starts a run, moves your un
 
 To look at random maps without the game, run `tools/MapPreview.java` (see `report.sh` for how to compile it): it writes pictures of maps to a folder.
 
-Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `tools/make-title.py` (both need Python with Pillow and numpy).
+Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `tools/make-title.py` (both need Python with Pillow and numpy). `python tools/make-title.py banner` draws the README title and the GitHub banner into `art/`.
 
 ## Release
 
@@ -32,3 +32,5 @@ Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `t
 2. Run `./release.sh`. It checks that everything is committed and pushed, builds the mod and prints the rest: open the link it shows, attach `build/MindustrySurvivors.jar` and publish.
 
 The game installs the mod from the jar attached to the newest release, so a release without the jar can't be installed.
+
+Before the first release, upload `art/banner.png` in the repo's Settings under Social preview. That's the banner mod lists show for the repo.

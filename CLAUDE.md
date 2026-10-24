@@ -38,6 +38,7 @@ Theme colors: curses purple, passives blue.
 - `src/mindustrysurvivors/SurvivorsUI.java`: the menu, info and database pages, level-up picks, Settings and Admin, and the HUD
 - `src/mindustrysurvivors/AutoTest.java`: the screenshot check and the other automatic tests
 - `sprites/curses/` and `sprites/pickups/`: curse and pickup icons, drawn by `tools/make-icons.py` (needs Python with Pillow and numpy)
+- `art/title.png` (the title in the game's own logo style, used in the README) and `art/banner.png` (the 1280x640 GitHub social preview: that title on the red moon) are drawn by `python tools/make-title.py banner`. `art/` is not packed into the mod.
 - `sprites/ui/title.png` (the menu title), `sprites/ui/menu-bg.png` (the backdrop of the full-screen Survivors pages) and `icon.png` (the mod list thumbnail, in the style of the Vampire Survivors cover) are drawn by `tools/make-title.py`. It needs the game source from `tools/fetch-source.sh` and the free Cormorant font in `libs/fonts/`; `python tools/make-title.py duo` picks the unit or turret in the thumbnail.
 
 ## Icon style
