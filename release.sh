@@ -24,5 +24,5 @@ echo
 echo "Ready to release $tag. Now:"
 echo "1. Open https://github.com/kennyzhang0819/mindustry-survivors/releases/new?tag=$tag&title=Mindustry%20Survivors%20$version"
 echo "2. Write a few lines about what's new."
-echo "3. Drag in $(pwd)/build/MindustrySurvivors.jar"
+echo "3. Drag in $(pwd -W 2>/dev/null || pwd)/build/MindustrySurvivors.jar"
 echo "4. Press Publish release."
