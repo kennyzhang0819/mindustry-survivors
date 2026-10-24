@@ -7,17 +7,14 @@ import mindustry.game.EventType.*;
 import mindustry.mod.*;
 
 public class MindustrySurvivorsMod extends Mod{
-    public static final boolean roguelike = true, dev = System.getenv("SURVIVORS_DEV") != null && !System.getenv("SURVIVORS_DEV").isEmpty();
+    public static final boolean dev = System.getenv("SURVIVORS_DEV") != null && !System.getenv("SURVIVORS_DEV").isEmpty();
+    public static final boolean admin = dev || AutoTest.enabled();
 
     public static SurvivorsUI ui;
-    public static WirelessUI wirelessUI;
 
     public MindustrySurvivorsMod(){
         SurvivorsRun.registerEvents();
         Curses.registerEvents();
-        Wireless.register();
-        TurretMods.registerEvents();
-        BlockMods.registerEvents();
         Arena.register();
         Chase.register();
         Survivor.register();
@@ -40,13 +37,8 @@ public class MindustrySurvivorsMod extends Mod{
                 Vars.control.sound.uiBus.setVolume(0.5f);
             }
 
-            wirelessUI = new WirelessUI();
-            wirelessUI.init();
-
-            if(roguelike){
-                ui = new SurvivorsUI();
-                ui.init();
-            }
+            ui = new SurvivorsUI();
+            ui.init();
 
             if(AutoTest.enabled()){
                 new AutoTest().begin();
@@ -60,8 +52,5 @@ public class MindustrySurvivorsMod extends Mod{
         Chase.load();
         Survivor.load();
         Curses.load();
-        Rewards.load();
-        TurretMods.load();
-        BlockMods.load();
     }
 }

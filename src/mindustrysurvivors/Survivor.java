@@ -396,8 +396,8 @@ public class Survivor{
 
     public static void take(Choice choice){
         SurvivorsRun run = SurvivorsRun.current;
-        if(run == null || run.pendingModifiers <= 0) return;
-        run.pendingModifiers--;
+        if(run == null || run.pendingPicks <= 0) return;
+        run.pendingPicks--;
         offer.clear();
         if(choice.gun != null) give(choice.gun);
         else if(choice.passive != null) give(choice.passive);
@@ -437,7 +437,7 @@ public class Survivor{
         while(run.xp >= SurvivorsRun.xpFor(run.level)){
             run.xp -= SurvivorsRun.xpFor(run.level);
             run.level++;
-            run.pendingModifiers++;
+            run.pendingPicks++;
             Unit me = player.unit();
             if(level(luck) >= 4 && me != null && !me.dead) me.heal(me.maxHealth * 0.1f);
         }

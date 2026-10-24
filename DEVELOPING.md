@@ -4,6 +4,8 @@
 
 Run `./play.sh`. It builds the mod, puts it in the game's mods folder and starts the game. The first time, it also downloads the game (needs Java 17 or newer). It uses your real game data.
 
+The Admin tab in Settings (give yourself levels, skip waves, add or remove curses) only shows when the game is started by `./play.sh`. Players who install the mod normally never see it.
+
 To only build, run `./build.sh`. It creates `build/MindustrySurvivors.jar`.
 
 ## Run report

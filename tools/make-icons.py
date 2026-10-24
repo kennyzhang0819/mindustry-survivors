@@ -327,112 +327,6 @@ def ambush():
     ]
 
 
-def living_metal():
-    block = poly([(2, 10), (8, 4), (30, 4), (30, 26), (60, 26), (60, 58), (54, 64), (2, 64)])
-    return [
-        (block & (X < 30), GRAY_L),
-        (block & (X >= 30), GRAY),
-        (poly([(30, 4), (50, 4), (64, 18), (64, 26), (52, 26), (40, 38), (30, 28)]), PURPLE),
-        (poly([(30, 28), (40, 38), (34, 44), (24, 34)]), VIOLET),
-        (poly([(12, 40), (24, 40), (24, 52), (12, 52)]), DARK),
-    ]
-
-
-def grace_period():
-    top = poly([(8, 8), (56, 8), (56, 12), (36, 32), (28, 32), (8, 12)])
-    bottom = poly([(28, 32), (36, 32), (56, 52), (56, 56), (8, 56), (8, 52)])
-    return [
-        (top & (X < 32), VIOLET),
-        (top & (X >= 32), PURPLE),
-        (bottom & (X < 32), VIOLET),
-        (bottom & (X >= 32), PURPLE),
-        (poly([(14, 56), (26, 44), (34, 44), (46, 56)]) | poly([(22, 12), (42, 12), (34, 20), (30, 20)]), PEACH),
-        (poly([(0, 0), (52, 0), (60, 8), (0, 8)]) | poly([(4, 56), (64, 56), (64, 64), (12, 64)]), DPURPLE),
-    ]
-
-
-def prefab():
-    block = poly([(2, 30), (8, 24), (40, 24), (46, 30), (46, 64), (2, 64)])
-    return [
-        (block & (X < 26), PURPLE),
-        (block & (X >= 26), DPURPLE),
-        (poly([(12, 36), (36, 36), (36, 54), (12, 54)]), VIOLET),
-        (poly([(42, 0), (58, 0), (48, 10), (60, 10), (34, 36), (34, 28), (40, 22), (30, 22), (30, 12)]), PEACH),
-    ]
-
-
-def war_factory():
-    hall = poly([(0, 64), (0, 22), (14, 8), (14, 22), (28, 8), (28, 22), (42, 8), (42, 22), (56, 22), (56, 64)])
-    return [
-        (hall & (X < 28), PURPLE),
-        (hall & (X >= 28), DPURPLE),
-        (poly([(16, 40), (36, 40), (36, 64), (16, 64)]), PLUM),
-        (poly([(40, 36), (52, 48), (64, 36), (64, 48), (52, 60), (40, 48)]), PEACH),
-    ]
-
-
-def recycle():
-    return [
-        (diamond(12, 54, 10) | diamond(28, 60, 7), GRAY),
-        (poly([(8, 44), (8, 20), (24, 4), (40, 4), (56, 20), (56, 30), (46, 30), (46, 24), (36, 14), (28, 14), (18, 24), (18, 44)]), PURPLE),
-        (poly([(40, 30), (62, 30), (51, 41)]), DPURPLE),
-        (diamond(50, 52, 11), VIOLET),
-        (diamond(50, 52, 4), PEACH),
-    ]
-
-
-def field_commander():
-    ship = poly([(32, 0), (46, 14), (46, 30), (60, 44), (60, 58), (52, 58), (46, 52), (40, 58), (24, 58), (18, 52), (12, 58), (4, 58), (4, 44), (18, 30), (18, 14)])
-    return [
-        (ship & (X < 32), PURPLE),
-        (ship & (X >= 32), DPURPLE),
-        (diamond(32, 22, 7), PEACH),
-        (poly([(24, 40), (32, 32), (40, 40), (40, 48), (32, 40), (24, 48)]), VIOLET),
-    ]
-
-
-def ore_magnet():
-    u = poly([(4, 2), (20, 2), (20, 28), (28, 36), (36, 36), (44, 28), (44, 2), (58, 2), (58, 36), (42, 52), (22, 52), (4, 34)])
-    return [
-        (u & (X < 32), PURPLE),
-        (u & (X >= 32), DPURPLE),
-        (u & (Y < 12), LIGHT),
-        (poly([(4, 64), (4, 54), (14, 44), (24, 54), (24, 64)]) | poly([(40, 64), (40, 52), (51, 41), (62, 52), (62, 64)]), COPPER),
-        (poly([(22, 64), (22, 40), (31, 31), (40, 40), (40, 64)]), OCHRE),
-    ]
-
-
-def scrap_rebirth():
-    return [
-        (poly([(0, 64), (0, 36), (6, 30), (10, 30), (26, 46), (26, 64)]), GRAY_L),
-        (poly([(34, 64), (34, 46), (50, 30), (58, 30), (64, 36), (64, 64)]), GRAY),
-        (diamond(30, 24, 11), PURPLE),
-        (diamond(44, 10, 8), VIOLET),
-        (diamond(18, 10, 6), PEACH),
-    ]
-
-
-def last_stand():
-    core = poly([(14, 40), (20, 34), (44, 34), (50, 40), (50, 64), (14, 64)])
-    return [
-        (poly([(20, 32), (2, 14), (2, 2), (14, 2), (32, 20)]), VIOLET),
-        (poly([(40, 26), (54, 12), (62, 12), (62, 20), (48, 34)]), VIOLET),
-        (peak(32, 0, 6, 36), PEACH),
-        (core & (X < 32), PURPLE),
-        (core & (X >= 32), DPURPLE),
-        (poly([(24, 46), (40, 46), (40, 56), (24, 56)]), PLUM),
-    ]
-
-
-def absolution():
-    return [
-        (diamond(26, 26, 22) & (X + Y < 50), RED),
-        (diamond(36, 36, 22) & (X + Y > 62), MUTED_RED),
-        (poly([(0, 52), (52, 0), (62, 0), (0, 62)]), VIOLET),
-        (poly([(4, 54), (54, 4), (58, 4), (4, 58)]), LIGHT),
-    ]
-
-
 def magnet():
     u = poly([(6, 6), (22, 6), (22, 34), (28, 40), (36, 40), (42, 34), (42, 6), (58, 6), (58, 42), (42, 58), (22, 58), (6, 42)])
     return [
@@ -445,13 +339,6 @@ def magnet():
 
 
 if __name__ == "__main__":
-    for name, fn in [
-        ("living-metal", living_metal), ("grace-period", grace_period), ("prefab", prefab),
-        ("war-factory", war_factory), ("recycle", recycle), ("field-commander", field_commander),
-        ("ore-magnet", ore_magnet), ("scrap-rebirth", scrap_rebirth), ("last-stand", last_stand), ("absolution", absolution),
-    ]:
-        icon("relics", name, fn())
-
     for name, fn in [
         ("speed-freaks", speed_freaks), ("life-leech", life_leech), ("long-range", long_range), ("just-die", just_die),
         ("self-destruction", self_destruction), ("mutually-assured-destruction", mutually_assured),

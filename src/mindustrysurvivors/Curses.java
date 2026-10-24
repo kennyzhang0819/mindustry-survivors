@@ -223,14 +223,6 @@ public class Curses{
         return best;
     }
 
-    public static Seq<Curse> offer(Seq<Curse> owned, Rand rand){
-        Seq<Curse> pool = all.select(m -> !owned.contains(m)), out = new Seq<>();
-        while(out.size < 3 && pool.any()){
-            out.add(pool.remove(rand.random(pool.size - 1)));
-        }
-        return out;
-    }
-
     static void lifted(Curse m){
         if(!state.isGame()) return;
         if(m == speedFreaks){
@@ -331,7 +323,7 @@ public class Curses{
             }
         }
 
-        if(on(shieldTowers) && state.rules.waves && !SurvivorsRun.captured() && (towerTimer += Time.delta) >= towerPeriod){
+        if(on(shieldTowers) && state.rules.waves && (towerTimer += Time.delta) >= towerPeriod){
             towerTimer = 0f;
             raiseTower();
         }

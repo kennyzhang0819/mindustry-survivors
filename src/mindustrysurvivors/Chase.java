@@ -263,8 +263,7 @@ public class Chase{
         Timer.schedule(() -> Core.app.post(() -> {
             SurvivorsRun r = SurvivorsRun.current;
             if(r == null) return;
-            r.pendingModifiers = 0;
-            r.pendingRelic = false;
+            r.pendingPicks = 0;
             if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
         }), 0f, 0.2f);
 

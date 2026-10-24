@@ -28,7 +28,7 @@ import mindustry.world.blocks.defense.turrets.*;
 import static mindustry.Vars.*;
 
 public class SurvivorsUI{
-    public @Nullable BaseDialog menuDialog, rewardDialog;
+    public @Nullable BaseDialog menuDialog, pickDialog;
     static final Color curseColor = Color.valueOf("b07ae8");
     static final String adminKey = "mindustry-survivors-admin", heatKey = "mindustry-survivors-heat";
     public Seq<Runnable> offered = new Seq<>();
@@ -70,13 +70,8 @@ public class SurvivorsUI{
     void update(){
         hideBuildMenu();
         if(!SurvivorsRun.active()) return;
-        //the game shows the sector name for 5 seconds after the landing animation, over any dialog
-        if(renderer.isCutscene()) run().loadedAt = Time.millis();
-        if(state.gameOver || Core.scene.hasDialog() || Time.timeSinceMillis(run().loadedAt) < (state.rules.sector == null ? 1000 : 5500)) return;
-        if(run().pendingGift) showGift();
-        else if(run().pendingRelic) showReward(true);
-        else if(run().pendingCurse) showCurse();
-        else if(run().pendingModifiers > 0) showLevelUp();
+        if(state.gameOver || Core.scene.hasDialog() || Time.timeSinceMillis(run().loadedAt) < 1000) return;
+        if(run().pendingPicks > 0) showLevelUp();
     }
 
     public void showMenu(){
@@ -325,7 +320,7 @@ public class SurvivorsUI{
             rows.left().defaults().left().pad(4f);
             for(Survivor.Passive passive : Survivor.passives){
                 rows.image(passive.icon.uiIcon).size(40f);
-                rows.add(passive.name).color(modifierColor).width(300f).padLeft(6f);
+                rows.add(passive.name).color(passiveColor).width(300f).padLeft(6f);
                 StringBuilder text = new StringBuilder(passive.step(1));
                 for(int l = 2; l <= passive.maxLevel && passive.steps.length > 1; l++) text.append("\n[lightgray]").append(l).append(": ").append(passive.step(l));
                 rows.add(text.toString()).wrap().width(400f);
@@ -356,88 +351,6 @@ public class SurvivorsUI{
         dialog.hidden(() -> {
             if(pause && state.isGame() && !state.gameOver) state.set(State.playing);
         });
-    }
-
-    public void showCurse(){
-        SurvivorsRun run = run();
-        Seq<Curses.Curse> curses = run.curseOffer();
-        if(curses.isEmpty()){
-            run.curse(null);
-            return;
-        }
-        offered = curses.map(m -> () -> run.curse(m));
-
-        rewardDialog = new BaseDialog("[#" + curseColor + "]Curse");
-        Table c = rewardDialog.cont;
-        c.add("Pick a [#" + curseColor + "]curse[].").padBottom(8f).row();
-
-        c.table(row -> {
-            for(int i = 0; i < curses.size; i++){
-                Curses.Curse curse = curses.get(i);
-                int index = i;
-                row.button(card -> {
-                    card.top().margin(12f);
-                    card.image(curse.icon()).size(64f).padBottom(6f).row();
-                    card.add(curse.name).color(curseColor).wrap().width(220f).padBottom(8f).get().setAlignment(Align.center);
-                    card.row();
-                    card.add(curse.description).wrap().width(220f).row();
-                }, Styles.defaultb, () -> choose(index)).size(260f, 260f).pad(8f);
-            }
-        });
-        pauseWhileShown(rewardDialog);
-        rewardDialog.show();
-    }
-
-    public void showReward(boolean relic){
-        SurvivorsRun run = run();
-        if((relic ? run.relicOffer() : run.modifierOffer()).isEmpty()){
-            run.skipPicks();
-            return;
-        }
-
-        rewardDialog = new BaseDialog(relic ? "[#" + Rewards.Rarity.relic.color + "]Relic" : "Level " + run.level);
-        Table c = rewardDialog.cont;
-        String word = relic ? "[#" + Rewards.Rarity.relic.color + "]relic[]. Each one comes with a [#" + curseColor + "]curse[]" : "card";
-        c.add("Pick a " + word + ".").padBottom(8f).row();
-
-        Table row = c.table().get();
-        Runnable[] fill = {null};
-        fill[0] = () -> {
-            row.clear();
-            Seq<Rewards.Reward> rewards = relic ? run.relicOffer() : run.modifierOffer();
-            offered = rewards.map(r -> () -> run.take(r));
-            for(int i = 0; i < rewards.size; i++){
-                Rewards.Reward reward = rewards.get(i);
-                int index = i;
-                row.table(col -> {
-                    col.button(card -> {
-                        card.top().margin(12f);
-                        if(reward.hasIcon()) card.image(reward.icon()).size(64f).padBottom(6f).row();
-                        card.add(reward.rarity.label).color(reward.rarity.color).padBottom(4f).row();
-                        card.add(reward.name).color(reward.rarity.color).padBottom(8f).row();
-                        card.add(reward.description).wrap().width(220f).row();
-                        Curses.Curse curse = relic ? run.curseFor(reward) : null;
-                        if(curse != null){
-                            card.image().color(curseColor).height(2f).growX().pad(10f, 0f, 10f, 0f).row();
-                            card.table(head -> {
-                                head.image(curse.icon()).size(32f).padRight(6f);
-                                head.add(curse.name).color(curseColor);
-                            }).padBottom(4f).row();
-                            card.add(curse.description).wrap().width(220f).color(Color.lightGray).row();
-                        }
-                    }, Styles.defaultb, () -> choose(index)).size(260f, relic ? 420f : 300f).row();
-                    if(!relic){
-                        col.button("Reroll", Icon.refresh, () -> {
-                            run.reroll(index);
-                            fill[0].run();
-                        }).disabled(b -> !run.canReroll(index)).size(260f, 50f).padTop(6f);
-                    }
-                }).pad(8f).top();
-            }
-        };
-        fill[0].run();
-        pauseWhileShown(rewardDialog);
-        rewardDialog.show();
     }
 
     public static void showScore(boolean end){
@@ -511,8 +424,8 @@ public class SurvivorsUI{
 
     public void showLevelUp(){
         if(Survivor.offer.isEmpty()) Survivor.offer.set(Survivor.roll());
-        rewardDialog = new BaseDialog("Level up!");
-        Table c = rewardDialog.cont;
+        pickDialog = new BaseDialog("Level up!");
+        Table c = pickDialog.cont;
         c.add("Pick one.").padBottom(8f).row();
         offered = Survivor.offer.map(choice -> () -> Survivor.take(choice));
         c.table(row -> {
@@ -520,7 +433,7 @@ public class SurvivorsUI{
                 Survivor.Choice choice = Survivor.offer.get(i);
                 int index = i;
                 int next = choice.nextLevel();
-                Color color = choice.gun != null ? Pal.accent : choice.passive != null ? modifierColor : choice.bonus ? Pal.lightOrange : Pal.heal;
+                Color color = choice.gun != null ? Pal.accent : choice.passive != null ? passiveColor : choice.bonus ? Pal.lightOrange : Pal.heal;
                 String kind = choice.gun != null ? "WEAPON" : choice.passive != null ? "PASSIVE" : choice.bonus ? "BONUS" : "HEAL";
                 row.button(card -> {
                     card.top().margin(0f);
@@ -539,11 +452,11 @@ public class SurvivorsUI{
             }
         }).row();
         c.table(t -> loadout(t, 48f)).padTop(10f);
-        pauseWhileShown(rewardDialog);
-        rewardDialog.show();
+        pauseWhileShown(pickDialog);
+        pickDialog.show();
     }
 
-    static final Color modifierColor = Color.valueOf("5c9cff");
+    static final Color passiveColor = Color.valueOf("5c9cff");
 
     //a card or slot fill in a dark shade of its type's color, so weapons, passives and heals read apart at a glance
     static Drawable shade(Color color, float brightness){
@@ -569,7 +482,7 @@ public class SurvivorsUI{
         t.table(row -> {
             for(int i = 0; i < Survivor.maxPassives; i++){
                 Survivor.Passive passive = i < Survivor.ownedPassives.size ? Survivor.ownedPassives.get(i) : null;
-                slot(row, passive == null ? null : passive.icon.uiIcon, passive == null ? 0 : Survivor.level(passive), passive == null ? "Empty passive slot" : passive.name + "\n[lightgray]" + passive.step(Survivor.level(passive)), size, modifierColor);
+                slot(row, passive == null ? null : passive.icon.uiIcon, passive == null ? 0 : Survivor.level(passive), passive == null ? "Empty passive slot" : passive.name + "\n[lightgray]" + passive.step(Survivor.level(passive)), size, passiveColor);
             }
         }).left();
     }
@@ -583,42 +496,13 @@ public class SurvivorsUI{
         row.stack(back, badge).size(size).pad(2f).tooltip(tip);
     }
 
-    public void showGift(){
-        SurvivorsRun run = run();
-        Seq<Item> choices = SurvivorsRun.giftChoices();
-        int needed = Math.min(Rewards.giftChoices, choices.size);
-        Seq<Item> picked = new Seq<>();
-        rewardDialog = new BaseDialog("[#" + Rewards.Rarity.relic.color + "]Grace Period");
-        Table c = rewardDialog.cont;
-        c.add("Pick " + needed + " resources. You get " + Rewards.giftAmount + " of each.").padBottom(8f).row();
-        c.table(grid -> {
-            int i = 0;
-            for(Item item : choices){
-                grid.button(b -> {
-                    b.image(item.uiIcon).size(40f).row();
-                    b.add(item.localizedName).padTop(4f);
-                }, Styles.clearTogglei, () -> {
-                    if(picked.contains(item)) picked.remove(item);
-                    else if(picked.size < needed) picked.add(item);
-                }).checked(b -> picked.contains(item)).size(120f, 90f).pad(4f);
-                if(++i % 6 == 0) grid.row();
-            }
-        }).row();
-        c.button("Take", Icon.ok, () -> {
-            run.gift(picked);
-            rewardDialog.hide();
-        }).disabled(b -> picked.size < needed).size(240f, 60f).padTop(10f);
-        pauseWhileShown(rewardDialog);
-        rewardDialog.show();
-    }
-
     public void choose(int index){
-        if(rewardDialog == null || index >= offered.size) return;
+        if(pickDialog == null || index >= offered.size) return;
         Runnable pick = offered.get(index);
         //a second click during the close animation must not pick again
         offered = new Seq<>();
         pick.run();
-        rewardDialog.hide();
+        pickDialog.hide();
     }
 
     public void showAdmin(){
@@ -627,7 +511,7 @@ public class SurvivorsUI{
 
     public void showSettings(int startTab){
         BaseDialog dialog = new BaseDialog("Settings", pageStyle(true));
-        int[] tab = {startTab};
+        int[] tab = {MindustrySurvivorsMod.admin ? startTab : 0};
         Table body = new Table();
         Runnable[] fill = {null};
         fill[0] = () -> {
@@ -636,7 +520,7 @@ public class SurvivorsUI{
             if(tab[0] == 0) gameSettings(body);
             else adminPage(body, dialog);
         };
-        dialog.cont.table(tabs -> {
+        if(MindustrySurvivorsMod.admin) dialog.cont.table(tabs -> {
             String[] names = {"Game", "Admin"};
             for(int i = 0; i < names.length; i++){
                 int index = i;
@@ -683,31 +567,23 @@ public class SurvivorsUI{
 
         c.table(row -> {
             row.defaults().size(220f, 54f).pad(4f);
-            row.button("+1 modifier pick", Icon.add, () -> {
-                run.pendingModifiers++;
+            row.button("+1 level-up pick", Icon.add, () -> {
+                run.pendingPicks++;
                 dialog.hide();
-            }).disabled(b -> SurvivorsRun.captured());
-            if(SurvivorsRun.relicsOn) row.button("+1 relic pick", Icon.add, () -> {
-                run.pendingRelic = true;
-                dialog.hide();
-            }).disabled(b -> SurvivorsRun.captured() || run.pendingRelic);
+            });
             row.button("Skip to a wave", Icon.right, () -> showWaves(dialog));
             row.button("+1 level", Icon.up, () -> {
                 run.level++;
                 run.xp = 0f;
-                run.pendingModifiers++;
-                if(SurvivorsRun.relicsOn && run.level % SurvivorsRun.levelsPerRelic == 0 && run.relicsTaken < SurvivorsRun.maxRelics) run.pendingRelic = true;
+                run.pendingPicks++;
                 dialog.hide();
-            }).disabled(b -> SurvivorsRun.captured());
+            });
         }).padBottom(8f).row();
-        c.add("Tap to add or remove.").color(Color.lightGray).padBottom(4f).row();
+        c.add("Tap a curse to add or remove it.").color(Color.lightGray).padBottom(4f).row();
 
         c.pane(list -> {
             list.left().defaults().left().pad(2f);
-            if(SurvivorsRun.relicsOn) adminRewards(list, run, "Relics", "[#" + Rewards.Rarity.relic.color + "]", true);
-            adminRewards(list, run, "Modifiers", "[accent]", false);
-            if(!SurvivorsRun.relicsOn) return;
-            list.add("[#" + curseColor + "]Curses").padTop(10f).row();
+            list.add("[#" + curseColor + "]Curses").row();
             list.table(row -> {
                 row.left();
                 int i = 0;
@@ -720,19 +596,6 @@ public class SurvivorsUI{
     }
 
     static final int adminPerRow = 7;
-
-    static void adminRewards(Table list, SurvivorsRun run, String title, String color, boolean relics){
-        list.add(color + title).padTop(relics ? 0f : 10f).row();
-        list.table(row -> {
-            row.left();
-            int i = 0;
-            for(Rewards.Reward reward : Rewards.all){
-                if(reward.isRelic() != relics || reward.copyOf != null) continue;
-                adminCell(row, reward.hasIcon() ? reward.icon() : Icon.box.getRegion(), reward.name, reward.rarity.color, () -> run.stacks(reward) > 0, () -> run.adminToggle(reward));
-                if(++i % adminPerRow == 0) row.row();
-            }
-        }).row();
-    }
 
     static void adminCell(Table row, TextureRegion icon, String name, Color color, Boolp owned, Runnable toggle){
         row.button(b -> {
@@ -755,25 +618,6 @@ public class SurvivorsUI{
                 if(w % 10 == 0) grid.row();
             }
         });
-        dialog.addCloseButton();
-        dialog.show();
-    }
-
-    void showSectors(BaseDialog admin){
-        BaseDialog dialog = new BaseDialog("Go to a sector");
-        dialog.cont.pane(list -> {
-            list.defaults().size(360f, 50f).pad(3f);
-            int i = 0;
-            for(SectorPreset preset : SurvivorsRun.campaignOrder()){
-                Sector sector = preset.sector;
-                list.button((sector.isCaptured() ? "[lightgray]" : "") + (++i) + ". " + preset.localizedName, sector.isCaptured() ? Icon.ok : Icon.play, Styles.cleart, () -> {
-                    if(sector == state.rules.sector) return;
-                    dialog.hide();
-                    admin.hide();
-                    SurvivorsRun.adminLand(preset);
-                }).disabled(b -> sector == state.rules.sector).row();
-            }
-        }).maxHeight(Core.graphics.getHeight() / Scl.scl() * 0.7f);
         dialog.addCloseButton();
         dialog.show();
     }
@@ -805,7 +649,7 @@ public class SurvivorsUI{
         panel.left();
         panel.defaults().growX();
         panel.label(() -> run() == null ? "" : "Difficulty: " + coloredDifficulty(Arena.difficulty().name(), run().heat)).left().padLeft(6f).padTop(2f).row();
-        panel.add(new Bar(() -> run() == null ? "" : SurvivorsRun.captured() ? "Sector captured" : "Level " + (run().level + 1), () -> Pal.accent, () -> run() == null ? 0f : SurvivorsRun.captured() ? 1f : run().xpProgress())).height(24f).pad(4f).row();
+        panel.add(new Bar(() -> run() == null ? "" : "Level " + (run().level + 1), () -> Pal.accent, () -> run() == null ? 0f : run().xpProgress())).height(24f).pad(4f).row();
         Table cursed = new Table();
         String[] lastCurses = {""};
         cursed.update(() -> {
@@ -826,7 +670,7 @@ public class SurvivorsUI{
         Table admin = new Table();
         boolean[] shown = {false};
         admin.update(() -> {
-            boolean on = Core.settings.getBool(adminKey, false);
+            boolean on = MindustrySurvivorsMod.admin && Core.settings.getBool(adminKey, false);
             if(on == shown[0] && admin.hasChildren() == on) return;
             shown[0] = on;
             admin.clear();
@@ -835,18 +679,18 @@ public class SurvivorsUI{
         panel.add(admin).growX();
         panel.row();
         panel.button("Score", Icon.list, Styles.cleart, () -> showScore(false)).growX().height(36f).row();
-        Table copies = new Table();
+        Table loadoutTable = new Table();
         String[] last = {""};
-        copies.update(() -> {
+        loadoutTable.update(() -> {
             StringBuilder key = new StringBuilder();
             for(Survivor.Gun gun : Survivor.ownedGuns) key.append(gun.turret.name).append(Survivor.gunLevel.get(gun, 1));
             for(Survivor.Passive p : Survivor.ownedPassives) key.append(p.id).append(Survivor.level(p));
             if(key.toString().equals(last[0])) return;
             last[0] = key.toString();
-            copies.clear();
-            loadout(copies, 36f);
+            loadoutTable.clear();
+            loadout(loadoutTable, 36f);
         });
-        panel.add(copies).left().pad(2f);
+        panel.add(loadoutTable).left().pad(2f);
 
         Table waves = ui.hudGroup.find("waves");
         if(waves != null) showCurrentWave(waves);

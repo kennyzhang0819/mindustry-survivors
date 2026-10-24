@@ -46,15 +46,6 @@ public class AutoTest{
         });
 
         String mode = System.getenv("SURVIVORS_AUTOTEST");
-        if("crash".equals(mode)){
-            later(2f, () -> {
-                Core.settings.put("serpulo-test-marker", "player");
-                SurvivorsRun.startNew();
-                Log.info("[Survivors-Test] Quitting during a run: live=@", Profile.live());
-                Core.app.exit();
-            });
-            return;
-        }
         if("endless".equals(mode)){
             later(2f, () -> SurvivorsRun.startNew());
             Events.run(Trigger.newGame, () -> later(5f, this::endless));
@@ -87,13 +78,6 @@ public class AutoTest{
         }
         if("chase".equals(mode)){
             Chase.stressTest(this);
-            return;
-        }
-        if("wireless".equals(mode)){
-            later(2f, () -> {
-                SurvivorsRun.startNew();
-            });
-            Events.run(Trigger.newGame, () -> later(10f, this::wireless));
             return;
         }
         if("arena".equals(mode)){
@@ -129,32 +113,11 @@ public class AutoTest{
             });
             return;
         }
-        if("turrets".equals(mode)){
-            later(2f, () -> {
-                SurvivorsRun.startNew();
-            });
-            Events.run(Trigger.newGame, () -> later(10f, this::turrets));
-            return;
-        }
-        if("blocks".equals(mode)){
-            later(2f, () -> {
-                SurvivorsRun.startNew();
-            });
-            Events.run(Trigger.newGame, () -> later(10f, this::blocks));
-            return;
-        }
         if("bench".equals(mode)){
             later(2f, () -> {
                 SurvivorsRun.startNew();
             });
             Events.run(Trigger.newGame, () -> later(10f, this::bench));
-            return;
-        }
-        if("drills".equals(mode)){
-            later(2f, () -> {
-                SurvivorsRun.startNew();
-            });
-            Events.run(Trigger.newGame, () -> later(10f, this::drills));
             return;
         }
         if("curses".equals(mode)){
@@ -164,74 +127,8 @@ public class AutoTest{
             Events.run(Trigger.newGame, () -> later(10f, this::curses));
             return;
         }
-        if("restore".equals(mode)){
-            later(2f, () -> {
-                Log.info("[Survivors-Test] RESULT after restart: live=@ playerMarker=@", Profile.live(), Core.settings.getString("serpulo-test-marker", "missing"));
-                Core.app.exit();
-            });
-            return;
-        }
-
-        later(2f, () -> {
-            Core.settings.put("serpulo-test-marker", "player");
-            saveDirectory.child("sector-serpulo-999.msav").writeString("player save");
-            SurvivorsRun.startNew();
-        });
-
-        Events.run(Trigger.newGame, () -> {
-            if(!continued) later(12f, this::onSectorLoaded);
-        });
-    }
-
-    void onSectorLoaded(){
-        SurvivorsRun run = SurvivorsRun.current;
-        SurvivorsUI rui = MindustrySurvivorsMod.ui;
-        Log.info("[Survivors-Test] Sector loaded. active=@ launches=@ relicPending=@ unitCap=@ processorBanned=@ duoUnlocked=@",
-            SurvivorsRun.active(), run.launches, run.pendingRelic, mindustry.entities.Units.getCap(state.rules.defaultTeam),
-            state.rules.bannedBlocks.contains(Blocks.microProcessor), Blocks.duo.unlocked());
-        shot("01-relic");
-
-        later(0.7f, () -> rui.choose(0));
-        later(1.4f, () -> {
-            Log.info("[Survivors-Test] After relic: relics=@ curses=@ level=@", run.relicsTaken, run.curses.map(m -> m.name), run.level);
-            Unit fake = UnitTypes.fortress.create(state.rules.waveTeam);
-            for(int i = 0; i < 3; i++) Survivor.addXp(fake.maxHealth);
-            Log.info("[Survivors-Test] After XP: level=@ pendingModifiers=@ xp=@", run.level, run.pendingModifiers, (int)run.xp);
-            run.pendingModifiers = 1;
-        });
-        later(2.8f, () -> shot("03-modifier"));
-        later(3.4f, () -> rui.choose(0));
-        later(3.8f, () -> {
-            run.curses.set(Curses.all);
-            logic.runWave();
-        });
-        later(5.5f, () -> {
-            Seq<Unit> enemies = state.rules.waveTeam.data().units.copy();
-            Log.info("[Survivors-Test] enemies=@ speed=@ longRange=@", enemies.size, enemies.count(u -> u.hasEffect(Curses.speedEffect)), enemies.count(u -> u.controller() instanceof Curses.LongRangeAI));
-            shot("04-hud");
-        });
-        later(7f, () -> {
-            control.saves.getCurrent().save();
-            logic.reset();
-        });
-        later(9f, () -> {
-            Log.info("[Survivors-Test] Back in menu: live=@ playerMarker=@ runSectorKept=@",
-                Profile.live(), Core.settings.getString("serpulo-test-marker", "missing"), Profile.sectorFiles(Profile.folder(Profile.run)).map(f -> f.name()));
-            continued = true;
-            SurvivorsRun.enter();
-            control.playSector(SectorPresets.groundZero.sector);
-        });
-        later(16f, () -> {
-            SurvivorsRun r = SurvivorsRun.current;
-            Log.info("[Survivors-Test] Continued: live=@ groundZeroSave=@ rewards=@ curses=@ level=@", Profile.live(), SectorPresets.groundZero.sector.save != null,
-                r.rewards.keys().toSeq().map(x -> x.name), r.curses.size, r.level);
-            Logic.sectorCapture();
-            Log.info("[Survivors-Test] After capture: rewards=@ curses=@ pending=@ waves=@", r.rewards.size, r.curses.size, r.pendingModifiers + (r.pendingRelic ? 1 : 0), state.rules.waves);
-            logic.reset();
-            SurvivorsRun.leave();
-            Log.info("[Survivors-Test] RESULT live=@ playerMarker=@ playerSave=@", Profile.live(), Core.settings.getString("serpulo-test-marker", "missing"), saveDirectory.child("sector-serpulo-999.msav").exists() ? saveDirectory.child("sector-serpulo-999.msav").readString() : "missing");
-            Core.app.exit();
-        });
+        Log.info("[Survivors-Test] RESULT unknown mode @", mode);
+        Core.app.exit();
     }
 
     void arena(){
@@ -251,7 +148,7 @@ public class AutoTest{
             Survivor.Choice d = new Survivor.Choice();
             d.bonus = true;
             Survivor.offer.set(Seq.with(a, b, c, d));
-            run.pendingModifiers = 1;
+            run.pendingPicks = 1;
         });
         later(2f, () -> {
             Log.info("[Survivors-Test] Level-up: dialog=@ offer=@", Core.scene.hasDialog(), Survivor.offer.map(Survivor.Choice::name));
@@ -331,7 +228,7 @@ public class AutoTest{
             }
         });
         later(9.5f, () -> {
-            SurvivorsRun.current.pendingModifiers = 0;
+            SurvivorsRun.current.pendingPicks = 0;
             if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
             Unit u = player.unit();
             for(int i = 0; i < 12; i++){
@@ -346,7 +243,7 @@ public class AutoTest{
             shot("04-fight");
             Log.info("[Survivors-Test] Your bullets in flight while not shooting: @ (loadout @)", Groups.bullet.count(b -> b.owner == player.unit()), Survivor.ownedGuns.map(g -> g.turret.name));
             Log.info("[Survivors-Test] After fight: enemies=@ gems=@ kits=@ xp=@ level=@ pending=@ kills=@ boats=@ boatsOnLand=@", state.rules.waveTeam.data().units.size,
-                Survivor.gemValue.size, Survivor.kitX.size, (int)run.xp, run.level, run.pendingModifiers, state.stats.enemyUnitsDestroyed,
+                Survivor.gemValue.size, Survivor.kitX.size, (int)run.xp, run.level, run.pendingPicks, state.stats.enemyUnitsDestroyed,
                 state.rules.waveTeam.data().units.count(e -> e.type.naval), state.rules.waveTeam.data().units.count(e -> e.type.naval && !e.floorOn().isLiquid));
         });
         later(10.2f, () -> {
@@ -511,288 +408,7 @@ public class AutoTest{
         });
     }
 
-    void wireless(){
-        SurvivorsRun.current.pendingRelic = false;
-        SurvivorsRun.current.pendingCurse = false;
-        if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
-        float first = state.wavetime;
-        logic.runWave();
-        Log.info("[Survivors-Test] Wireless run: lighting=@ weather=@ alphaBuild=@ on=@ firstWaveIn=@s nextGap=@s spawnMultiplier=@ erekirOpen=@ launchTargets=@", state.rules.lighting, renderer.drawWeather, UnitTypes.alpha.buildSpeed, SurvivorsRun.wirelessOn(), (int)(first / 60f), (int)(state.wavetime / 60f),
-            state.getPlanet().campaignRules.difficulty.enemySpawnMultiplier, Planets.erekir.alwaysUnlocked, Planets.serpulo.launchCandidates);
-        Team team = state.rules.defaultTeam;
-        Building core = team.core();
-        Tile drillTile = near(core, t -> t.overlay() == Blocks.oreCopper && Build.validPlace(Blocks.mechanicalDrill, team, t.x, t.y, 0));
-        if(drillTile != null) drillTile.setNet(Blocks.mechanicalDrill, team, 0);
-        Tile duoTile = near(core, t -> Build.validPlace(Blocks.duo, team, t.x, t.y, 0) && t.dst(core) > 6 * tilesize);
-        duoTile.setNet(Blocks.duo, team, 0);
-        Wireless.pool.put(Liquids.water, 500f);
-        int copper = core.items.get(Items.copper);
-        Log.info("[Survivors-Test] Wireless start: objectives=@ processors=@ conveyorBanned=@ conduitBanned=@ pumpBanned=@ drill=@ copper=@",
-            state.rules.objectives.all.size, Groups.build.count(b -> b.block == Blocks.worldProcessor), state.rules.bannedBlocks.contains(Blocks.conveyor), state.rules.bannedBlocks.contains(Blocks.conduit), state.rules.bannedBlocks.contains(Blocks.mechanicalPump), drillTile != null, copper);
-
-        later(6f, () -> {
-            var duo = (ItemTurret.ItemTurretBuild)duoTile.build;
-            Log.info("[Survivors-Test] Wireless after 6s: drillItems=@ duoAmmo=@ duoWater=@ poolWater=@ coreCopperChange=@",
-                drillTile == null ? -1 : drillTile.build.items.total(), duo.totalAmmo, duo.liquids.get(Liquids.water), Wireless.pool.get(Liquids.water, 0f), core.items.get(Items.copper) - copper);
-            Core.camera.position.set(duo.x, duo.y);
-            MindustrySurvivorsMod.wirelessUI.show(duo);
-        });
-        later(7f, () -> shot("wireless"));
-        later(7.5f, () -> {
-            MindustrySurvivorsMod.wirelessUI.hide();
-            SurvivorsRun.current.pendingGift = true;
-        });
-        later(9f, () -> shot("gift"));
-        later(9.5f, () -> {
-            Seq<Item> pick = SurvivorsRun.giftChoices().select(i -> i != Items.copper).add(Items.copper).copy();
-            pick.truncate(Math.min(3, pick.size));
-            SurvivorsRun.current.gift(pick);
-            var giftCore = state.rules.defaultTeam.core();
-            Log.info("[Survivors-Test] Gift: picked=@ amounts=@ capacity=@", pick.map(i -> i.name), pick.map(i -> giftCore.items.get(i)), giftCore.storageCapacity);
-            if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
-        });
-        later(10f, () -> {
-            SurvivorsRun run = SurvivorsRun.current;
-            run.adminToggle(Rewards.livingMetal);
-            run.adminToggle(Curses.all.first());
-            Core.settings.put(SurvivorsUI.adminKey, true);
-            MindustrySurvivorsMod.ui.showAdmin();
-            Log.info("[Survivors-Test] Admin: relic=@ curse=@", run.stacks(Rewards.livingMetal), run.curses.contains(Curses.all.first()));
-        });
-        later(11f, () -> shot("admin"));
-        later(11.5f, () -> {
-            SurvivorsRun run = SurvivorsRun.current;
-            run.adminToggle(Rewards.livingMetal);
-            run.adminToggle(Curses.all.first());
-            Log.info("[Survivors-Test] Admin removed: relic=@ curse=@", run.stacks(Rewards.livingMetal), run.curses.contains(Curses.all.first()));
-            Log.info("[Survivors-Test] Campaign order: @", SurvivorsRun.campaignOrder().map(p -> p.name));
-            MindustrySurvivorsMod.ui.showSectors((mindustry.ui.dialogs.BaseDialog)Core.scene.getDialog());
-        });
-        later(12.5f, () -> shot("sectors"));
-        later(13f, () -> {
-            Log.info("[Survivors-Test] RESULT wireless done");
-            Core.app.exit();
-        });
-    }
-
-    void turrets(){
-        SurvivorsRun run = SurvivorsRun.current;
-        run.pendingRelic = false;
-        if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
-        int duoCost = Blocks.duo.requirements[0].amount;
-        for(Rewards.Reward r : Rewards.all) if(!r.isRelic()) run.rewards.put(r, 1);
-        run.applyTweaks();
-        Team enemy = state.rules.waveTeam, team = state.rules.defaultTeam;
-        Building core = team.core();
-        core.items.add(Items.copper, 3000);
-        core.items.add(Items.graphite, 1000);
-        core.items.add(Items.coal, 1000);
-        core.items.add(Items.lead, 1000);
-        core.items.add(Items.scrap, 1000);
-        float cx = core.x, cy = core.y;
-
-        Tile duoA = near(core, t -> Build.validPlace(Blocks.duo, team, t.x, t.y, 0) && Build.validPlace(Blocks.duo, team, t.x + 1, t.y, 0) && Build.validPlace(Blocks.duo, team, t.x + 2, t.y, 0) && t.dst(core) > 5 * tilesize);
-        for(int i = 0; i < 3; i++) world.tile(duoA.x + i, duoA.y).setNet(Blocks.duo, team, 0);
-        Tile scatter = near(core, t -> Build.validPlace(Blocks.scatter, team, t.x, t.y, 0) && t.dst(duoA) > 5 * tilesize && t.dst(core) > 5 * tilesize);
-        scatter.setNet(Blocks.scatter, team, 0);
-        Tile scorch = near(core, t -> Build.validPlace(Blocks.scorch, team, t.x, t.y, 0) && t.dst(duoA) > 5 * tilesize && t.dst(scatter) > 5 * tilesize && t.dst(core) > 5 * tilesize);
-        scorch.setNet(Blocks.scorch, team, 0);
-        Tile hail = near(core, t -> Build.validPlace(Blocks.hail, team, t.x, t.y, 0) && t.dst(duoA) > 5 * tilesize && t.dst(scatter) > 5 * tilesize && t.dst(scorch) > 5 * tilesize && t.dst(core) > 5 * tilesize);
-        hail.setNet(Blocks.hail, team, 0);
-        Log.info("[Survivors-Test] Turrets: duoCost @ -> @, scorchHealth=@/@", duoCost, Blocks.duo.requirements[0].amount, (int)scorch.build.maxHealth, (int)Blocks.scorch.health);
-
-        Unit groundTarget = UnitTypes.fortress.spawn(enemy, scatter.worldx() + 60f, scatter.worldy());
-        Unit flyer = UnitTypes.flare.spawn(enemy, scatter.worldx() + 40f, scatter.worldy() + 40f);
-        Unit duoTarget = UnitTypes.fortress.spawn(enemy, duoA.worldx() + 50f, duoA.worldy() + 40f);
-        Unit burner = UnitTypes.dagger.spawn(enemy, scorch.worldx() + 30f, scorch.worldy());
-        Unit bystander = UnitTypes.dagger.spawn(enemy, scorch.worldx() + 40f, scorch.worldy() + 16f);
-        Unit hailTarget = UnitTypes.fortress.spawn(enemy, hail.worldx() + 200f, hail.worldy());
-        for(Unit u : new Unit[]{groundTarget, flyer, duoTarget, burner, bystander, hailTarget}){
-            u.apply(StatusEffects.unmoving, 60f * 30f);
-            u.apply(StatusEffects.disarmed, 60f * 30f);
-        }
-        float groundStart = groundTarget.health;
-
-        later(4f, () -> {
-            Building d = duoA.build;
-            Log.info("[Survivors-Test] Duo: phalanxGroup=@ gatlingSpeed=@ duoTargetHealth=@/@", TurretMods.groups.get(d.id, 0), TurretMods.speed(d), (int)duoTarget.health, (int)duoTarget.maxHealth);
-            Log.info("[Survivors-Test] Scatter: groundTarget lost=@ flyerDead=@", (int)(groundStart - groundTarget.health), flyer.dead || !flyer.isAdded());
-            Log.info("[Survivors-Test] Scorch: burnerDead=@ bystanderBurning=@", burner.dead || !burner.isAdded(), bystander.hasEffect(StatusEffects.burning));
-            Log.info("[Survivors-Test] Hail: shots=@ fields=@ hailTargetHealth=@/@", ((mindustry.world.blocks.defense.turrets.Turret.TurretBuild)hail.build).totalShots, TurretMods.fields.size, (int)hailTarget.health, (int)hailTarget.maxHealth);
-            Log.info("[Survivors-Test] Inferno: scorchHealth=@/@", (int)scorch.build.maxHealth, (int)Blocks.scorch.health);
-            scorch.build.kill();
-            scatter.remove();
-            for(int i = 0; i < 3; i++) world.tile(duoA.x + i, duoA.y).remove();
-            ((mindustry.world.blocks.defense.turrets.Turret.TurretBuild)hail.build).totalShots = 9;
-            Unit meteorTarget = UnitTypes.fortress.spawn(enemy, hail.worldx() - 120f, hail.worldy() - 60f);
-            meteorTarget.apply(StatusEffects.unmoving, 60f * 30f);
-            meteorTarget.apply(StatusEffects.disarmed, 60f * 30f);
-        });
-        for(float t = 4.5f; t < 9f; t += 0.5f) later(t, () -> { if(Groups.bullet.contains(b -> b.type == TurretMods.meteorType)) Log.info("[Survivors-Test] Meteor in flight"); });
-        later(5f, () -> Log.info("[Survivors-Test] Phoenix down: tile=@", scorch.build == null ? "empty" : scorch.build.block.name));
-        later(9f, () -> {
-            Core.camera.position.set(hail.worldx(), hail.worldy());
-            shot("turrets");
-        });
-        later(16f, () -> {
-            Log.info("[Survivors-Test] Phoenix after 11s: tile=@ team=@", scorch.build == null ? "empty" : scorch.build.block.name, scorch.build == null ? "-" : scorch.build.team);
-            Log.info("[Survivors-Test] Hail later: shots=@ hailTargetHealth=@/@", ((mindustry.world.blocks.defense.turrets.Turret.TurretBuild)hail.build).totalShots, (int)hailTarget.health, (int)hailTarget.maxHealth);
-            Log.info("[Survivors-Test] RESULT turrets done");
-            Core.app.exit();
-        });
-    }
-
-    final Seq<Tile> used = new Seq<>();
-
-    Tile spot(Building core, Block block, float minDst){
-        Team team = state.rules.defaultTeam;
-        Tile t = near(core, c -> Build.validPlace(block, team, c.x, c.y, 0) && c.dst(core) > minDst * tilesize && !used.contains(u -> u.dst(c) < 7f * tilesize));
-        if(t == null) t = near(core, c -> Build.validPlace(block, team, c.x, c.y, 0) && !used.contains(u -> u.dst(c) < 5f * tilesize));
-        if(t == null) t = near(core, c -> free(c, block) && c.dst(core) > minDst * tilesize && !used.contains(u -> u.dst(c) < 7f * tilesize));
-        used.add(t);
-        t.setNet(block, team, 0);
-        if(t.build != null && t.build.power != null && t.build.power.graph != null) t.build.power.graph.producers.add(Curses.generator);
-        return t;
-    }
-
-    static boolean free(Tile c, Block block){
-        int off = -(block.size - 1) / 2;
-        for(int x = 0; x < block.size; x++){
-            for(int y = 0; y < block.size; y++){
-                Tile t = world.tile(c.x + off + x, c.y + off + y);
-                if(t == null || t.block() != Blocks.air || t.floor().isDeep() || t.solid() || state.rules.defaultTeam.core().within(t, 5f * tilesize)) return false;
-            }
-        }
-        return true;
-    }
-
-    Unit foe(UnitType type, Tile at, float dx, float dy, boolean armed){
-        Unit u = type.spawn(state.rules.waveTeam, at.worldx() + dx, at.worldy() + dy);
-        u.apply(StatusEffects.unmoving, 60f * 40f);
-        if(!armed) u.apply(StatusEffects.disarmed, 60f * 40f);
-        return u;
-    }
-
-    void blocks(){
-        SurvivorsRun run = SurvivorsRun.current;
-        run.pendingRelic = false;
-        if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
-        int copperCost = Blocks.copperWall.requirements[0].amount;
-        float copperTime = Blocks.copperWall.buildTime;
-        for(Rewards.Reward r : Rewards.all) if(!r.isRelic()) run.rewards.put(r, 1);
-        run.applyTweaks();
-        Building core = state.rules.defaultTeam.core();
-        for(Item item : content.items()) core.items.add(item, 2000);
-        Log.info("[Survivors-Test] Walls: copper cost @ -> @, build time @ -> @, scrap @, thorium @", copperCost, Blocks.copperWall.requirements[0].amount, (int)copperTime, (int)Blocks.copperWall.buildTime, Blocks.scrapWall.requirements[0].amount, Blocks.thoriumWall.requirements[0].amount);
-
-        Tile copper = spot(core, Blocks.copperWall, 6f);
-        Unit copperFoe = foe(UnitTypes.dagger, copper, 30f, 0f, true);
-        Tile plast = spot(core, Blocks.plastaniumWall, 6f);
-        Unit stuck = foe(UnitTypes.dagger, plast, 9f, 0f, true);
-        Tile thorium = spot(core, Blocks.thoriumWall, 6f);
-        Unit irradiated = foe(UnitTypes.fortress, thorium, 20f, 0f, false);
-        Tile phase = spot(core, Blocks.phaseWall, 6f);
-        Unit pushed = foe(UnitTypes.dagger, phase, 8f, 0f, false);
-        pushed.unapply(StatusEffects.unmoving);
-        float pushedX = pushed.x, pushedY = pushed.y;
-        Tile surge = spot(core, Blocks.surgeWall, 6f);
-        Unit zapped = foe(UnitTypes.fortress, surge, 30f, 0f, false);
-        Tile scrap = spot(core, Blocks.scrapWall, 6f);
-        Tile titanium = spot(core, Blocks.titaniumWall, 6f);
-        Unit shredded = foe(UnitTypes.fortress, titanium, 20f, 0f, false);
-        Tile thorium2 = spot(core, Blocks.thoriumWall, 6f);
-        Unit nuked = foe(UnitTypes.fortress, thorium2, 40f, 0f, false);
-
-        Tile mender = spot(core, Blocks.mendProjector, 6f);
-        Tile patient = world.tile(mender.x + 3, mender.y);
-        patient.setNet(Blocks.copperWall, state.rules.defaultTeam, 0);
-        Tile victim = world.tile(mender.x, mender.y + 3);
-        victim.setNet(Blocks.duo, state.rules.defaultTeam, 0);
-        Tile force = spot(core, Blocks.forceProjector, 6f);
-        Unit shooter = foe(UnitTypes.fortress, force, 130f, 0f, true);
-        Unit inside = foe(UnitTypes.fortress, force, 0f, 30f, false);
-
-        Tile water = spot(core, Blocks.waterExtractor, 6f);
-        Unit soaked = foe(UnitTypes.dagger, water, 30f, 0f, false);
-        Tile cultivator = spot(core, Blocks.cultivator, 6f);
-        Unit spored = foe(UnitTypes.dagger, cultivator, 30f, 0f, false);
-        Tile oil = spot(core, Blocks.oilExtractor, 6f);
-        Unit tarred = foe(UnitTypes.fortress, oil, 30f, 0f, false);
-
-        later(1.5f, () -> {
-            Log.info("[Survivors-Test] Health: scrapWall=@ titaniumWall=@ thoriumWall=@ (normal @/@/@)", (int)scrap.build.maxHealth, (int)titanium.build.maxHealth, (int)thorium.build.maxHealth,
-                (int)Blocks.scrapWall.health, (int)Blocks.titaniumWall.health, (int)Blocks.thoriumWall.health);
-            patient.build.health = patient.build.maxHealth * 0.1f;
-            BlockMods.scrapDeaths = 19;
-            scrap.build.kill();
-            titanium.build.kill();
-            thorium2.build.kill();
-            victim.build.kill();
-            BlockMods.growCrawler(cultivator.build);
-            Building f = force.build;
-            Log.info("[Survivors-Test] Force before break: broken=@ power=@", ((mindustry.world.blocks.defense.ForceProjector.ForceBuild)f).broken, f.power.status);
-            for(int i = 0; i < 5; i++) UnitTypes.dagger.weapons.first().bullet.create(shooter, state.rules.waveTeam, f.x + 140f, f.y + i * 4f, 180f);
-        });
-        later(3f, () -> {
-            Log.info("[Survivors-Test] Copper: foeHealth=@/@ (thorns+pillbox)", (int)copperFoe.health, (int)copperFoe.maxHealth);
-            Log.info("[Survivors-Test] Plastanium: stuck=@ ; Thorium radiation: fortress=@/@ ; Phase: moved=@ ; Surge: fortress=@/@",
-                stuck.hasEffect(StatusEffects.unmoving), (int)irradiated.health, (int)irradiated.maxHealth, (int)Mathf.dst(pushedX, pushedY, pushed.x, pushed.y), (int)zapped.health, (int)zapped.maxHealth);
-            Log.info("[Survivors-Test] Destroyed: titanium tile=@ shrapnel fortress=@/@ ; critical mass fortress=@/@ ; golem fortresses=@",
-                titanium.block().name, (int)shredded.health, (int)shredded.maxHealth, (int)nuked.health, (int)nuked.maxHealth, state.rules.defaultTeam.data().units.count(u -> u.type == UnitTypes.fortress));
-            Log.info("[Survivors-Test] Triage: patient=@/@ ; Fungal: crawlers=@", (int)patient.build.health, (int)patient.build.maxHealth, state.rules.defaultTeam.data().units.count(u -> u.type == UnitTypes.crawler));
-            Log.info("[Survivors-Test] Mirror: reflected=@ ; shooterHealth=@/@", BlockMods.mirrored, (int)shooter.health, (int)shooter.maxHealth);
-            ((mindustry.world.blocks.defense.ForceProjector.ForceBuild)force.build).buildup = 1e7f;
-            Log.info("[Survivors-Test] Production: wet=@ spores=@ tarred=@", soaked.hasEffect(StatusEffects.wet), spored.hasEffect(StatusEffects.sporeSlowed), tarred.hasEffect(StatusEffects.tarred));
-            tarred.damage(1f);
-            Events.fire(new UnitDamageEvent().set(tarred, Bullets.placeholder.create(core, state.rules.defaultTeam, tarred.x, tarred.y, 0f)));
-        });
-        later(4f, () -> Log.info("[Survivors-Test] Backlash: inside fortress=@/@ ; Firewall: burning=@", (int)inside.health, (int)inside.maxHealth, tarred.hasEffect(StatusEffects.burning)));
-        later(5f, () -> {
-            Core.camera.position.set(mender.worldx(), mender.worldy());
-            shot("blocks");
-        });
-        later(8.5f, () -> {
-            Log.info("[Survivors-Test] Rebuilt after 7s: scrap=@ duo=@", scrap.block().name, victim.block().name);
-            Log.info("[Survivors-Test] RESULT blocks done");
-            Core.app.exit();
-        });
-    }
-
-    @Nullable Tile onOre(Building core, Block drill){
-        Team team = state.rules.defaultTeam;
-        Tile t = near(core, c -> Build.validPlace(drill, team, c.x, c.y, 0) && !used.contains(u -> u.dst(c) < (drill.size + 3) * tilesize));
-        if(t == null) return null;
-        used.add(t);
-        t.setNet(drill, team, 0);
-        if(t.build.power != null && t.build.power.graph != null) t.build.power.graph.producers.add(Curses.generator);
-        return t;
-    }
-
-    void drills(){
-        SurvivorsRun run = SurvivorsRun.current;
-        run.pendingRelic = false;
-        if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
-        Building core = state.rules.defaultTeam.core();
-        Tile mech = onOre(core, Blocks.mechanicalDrill), pneu = onOre(core, Blocks.pneumaticDrill), laser = onOre(core, Blocks.laserDrill);
-        later(1f, () -> {
-            var m = (mindustry.world.blocks.production.Drill.DrillBuild)mech.build;
-            int before = m.dominantItems;
-            for(Rewards.Reward r : Seq.with(Rewards.wideBore, Rewards.doubleHaul, Rewards.deepVein, Rewards.prospector, Rewards.overpressure)) run.rewards.put(r, 1);
-            run.applyTweaks();
-            int copper = core.items.get(Items.copper), titanium = core.items.get(Items.titanium);
-            later(1.5f, () -> Log.info("[Survivors-Test] Wide Bore: ore counted @ -> @", before, m.dominantItems));
-            later(8f, () -> {
-                var p = (mindustry.world.blocks.production.Drill.DrillBuild)pneu.build;
-                Log.info("[Survivors-Test] Deep Vein: pneumatic mines @ ; core titanium +@ ; core copper +@", p.dominantItem, core.items.get(Items.titanium) - titanium, core.items.get(Items.copper) - copper);
-                Log.info("[Survivors-Test] Double Haul and Prospector bonus keys=@ ; laser=@", BlockMods.bonusItems.size, laser == null ? "no ore spot" : ((mindustry.world.blocks.production.Drill.DrillBuild)laser.build).dominantItem);
-                Log.info("[Survivors-Test] RESULT drills done");
-                Core.app.exit();
-            });
-        });
-    }
-
     void bench(){
-        SurvivorsRun.current.pendingRelic = false;
         if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
         state.rules.waveTimer = false;
         Tile spawn = spawner.getSpawns().first();
@@ -801,9 +417,7 @@ public class AutoTest{
         Timer.schedule(() -> Core.app.post(() -> {
             SurvivorsRun r = SurvivorsRun.current;
             if(r == null) return;
-            r.pendingModifiers = 0;
-            r.pendingRelic = false;
-            r.pendingGift = false;
+            r.pendingPicks = 0;
             if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
         }), 0f, 0.2f);
         if(OS.env("BENCH_NOPHYS") != null){
@@ -849,7 +463,6 @@ public class AutoTest{
 
     void curses(){
         SurvivorsRun run = SurvivorsRun.current;
-        run.pendingRelic = false;
         if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
         run.curses.set(Seq.with(Curses.hungryMechs, Curses.mechVirus, Curses.overshields, Curses.armoredSwarms, Curses.leadership, Curses.shieldTowers, Curses.ambush, Curses.speedFreaks));
         Team enemy = state.rules.waveTeam, team = state.rules.defaultTeam;
