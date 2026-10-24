@@ -24,7 +24,7 @@ Set `SURVIVORS_AUTOTEST=chase` for a stress test: it starts a run, moves your un
 
 To look at random maps without the game, run `tools/MapPreview.java` (see `report.sh` for how to compile it): it writes pictures of maps to a folder.
 
-Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `tools/make-title.py` (both need Python with Pillow and numpy). `python tools/make-title.py banner` draws the README title and the GitHub banner into `art/`.
+Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `tools/make-title.py` (both need Python with Pillow and numpy). `python tools/make-title.py banner` redraws only the banner in `art/`, which the README and GitHub show.
 
 ## Release
 

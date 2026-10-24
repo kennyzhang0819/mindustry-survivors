@@ -1,7 +1,7 @@
 <p align="center">
   <img src="icon.png" width="180" alt="Mindustry Survivors icon">
   <br>
-  <img src="art/title.png" width="460" alt="Mindustry Survivors">
+  <img src="art/banner.png" width="720" alt="Mindustry Survivors">
 </p>
 
 Mindustry, but you play it like Vampire Survivors.
