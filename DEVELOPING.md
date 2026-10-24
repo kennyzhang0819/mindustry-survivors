@@ -25,3 +25,10 @@ Set `SURVIVORS_AUTOTEST=chase` for a stress test: it starts a run, moves your un
 To look at random maps without the game, run `tools/MapPreview.java` (see `report.sh` for how to compile it): it writes pictures of maps to a folder.
 
 Curse icons are drawn by `tools/make-icons.py`, and the title and mod icon by `tools/make-title.py` (both need Python with Pillow and numpy).
+
+## Release
+
+1. Raise `version` in `mod.hjson` (for example `0.1.0` to `0.1.1`), commit and push. Players are only offered an update when this number goes up. The first release keeps `0.1.0`.
+2. Run `./release.sh`. It checks that everything is committed and pushed, builds the mod and prints the rest: open the link it shows, attach `build/MindustrySurvivors.jar` and publish.
+
+The game installs the mod from the jar attached to the newest release, so a release without the jar can't be installed.

@@ -16,6 +16,7 @@ Theme colors: curses purple, passives blue.
 ## Commands
 - `./build.sh` builds `build/MindustrySurvivors.jar`. It downloads the game jar into `libs/` the first time.
 - `./report.sh` prints every turret level, passive, wave total and curse, without opening the game.
+- `./release.sh` builds a release after checking everything is committed and pushed, and prints how to publish it on GitHub (raise `version` in `mod.hjson` first). See DEVELOPING.md.
 - `./play.sh` builds, installs the mod into `%APPDATA%\Mindustry\mods\` and starts the game in English with `SURVIVORS_DEV=1` (no weather, no planet haze, no day and night) `SURVIVORS_NOMUSIC=1` (no music) and `SURVIVORS_QUIET=1` (sound effects at 50%). It uses the user's real game data, so don't use it for tests. When launching the game yourself for the user to play, also set `SURVIVORS_DEV=1`, `SURVIVORS_NOMUSIC=1` and `-Duser.language=en -Duser.country=US`.
 
 ## Testing

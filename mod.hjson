@@ -1,8 +1,8 @@
 name: "mindustry-survivors"
 displayName: "Mindustry Survivors"
-author: "kennyzhang0819"
+author: "Zerkka"
 main: "mindustrysurvivors.MindustrySurvivorsMod"
 description: "Mindustry played like Vampire Survivors. Survive 50 waves on a random map with turrets that orbit you."
 version: "0.1.0"
-minGameVersion: "154"
+minGameVersion: "160"
 java: true
