@@ -24,7 +24,7 @@ Relics and modifiers:
 
 ## Testing
 - After a change: build, then run `./report.sh`.
-- If the UI changed, run the short screenshot check `SURVIVORS_AUTOTEST=arena` (about 40 seconds; see README).
+- If the UI changed, run the short screenshot check `SURVIVORS_AUTOTEST=arena` (about 40 seconds; see DEVELOPING.md).
 - After a turret balance change, `SURVIVORS_AUTOTEST=damage` logs every turret's damage per second at levels 1 and 10 (about 4 minutes).
 - Don't run full automated playthroughs. The user playtests.
 - When launching the game, point `APPDATA` (Windows) or `XDG_DATA_HOME` (Linux) at an empty folder so the user's saves aren't touched.
