@@ -82,7 +82,7 @@ public class RunReport{
         System.out.println(units + " enemies, " + (int)total + " XP in gems. Levels if every gem is picked up: " + levels);
         System.out.println();
         System.out.println("== Curses ==");
-        System.out.println("(rolled at the start of an Eradication +1 to +4 run: budgets 4, 6, 8, 11 points, at least 2, 2, 3, 3 curses, at most 4)");
+        System.out.println("(rolled at the start of an Eradication +1 to +3 run: budgets 4, 8, 13 points, at least 2, 3, 4 curses, at most 4)");
         for(Curses.Curse m : Curses.all){
             System.out.printf("%-20s %d  %s%n", m.name, m.cost, m.description);
         }

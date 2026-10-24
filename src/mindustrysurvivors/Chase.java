@@ -16,6 +16,7 @@ import mindustry.entities.units.*;
 import mindustry.game.EventType.*;
 import mindustry.gen.*;
 import mindustry.type.*;
+import mindustry.type.unit.*;
 import mindustry.world.*;
 import mindustry.world.blocks.environment.*;
 
@@ -213,7 +214,7 @@ public class Chase{
     }
 
     static boolean chases(Unit unit){
-        return Arena.active() && unit.team == state.rules.waveTeam && !unit.isPlayer();
+        return Arena.active() && unit.team == state.rules.waveTeam && !unit.isPlayer() && !(unit.type instanceof MissileUnitType);
     }
 
     static void install(){

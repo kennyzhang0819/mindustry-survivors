@@ -50,8 +50,8 @@ public class SurvivorsRun{
     public Difficulty difficulty = Difficulty.eradication;
     //levels past Eradication: each one has a curse budget and a smallest number of curses
     public int heat;
-    public static final int maxHeat = 4;
-    static final int[] heatBudget = {0, 4, 6, 8, 11}, heatMinCurses = {0, 2, 2, 3, 3};
+    public static final int maxHeat = 3;
+    static final int[] heatBudget = {0, 4, 8, 13}, heatMinCurses = {0, 2, 3, 4};
     public final ObjectIntMap<Rewards.Reward> rewards = new ObjectIntMap<>();
     public final ObjectIntMap<Block> copies = new ObjectIntMap<>();
     public final Seq<Curses.Curse> curses = new Seq<>();
@@ -92,7 +92,7 @@ public class SurvivorsRun{
         SurvivorsRun run = new SurvivorsRun();
         run.id = Math.abs(new Rand().nextLong());
         run.difficulty = heat > 0 ? Difficulty.eradication : difficulty;
-        run.heat = heat;
+        run.heat = Mathf.clamp(heat, 0, maxHeat);
         run.save();
         current = run;
         current.applyTweaks();
@@ -184,7 +184,8 @@ public class SurvivorsRun{
     }
 
     public static float xpFor(int level){
-        return 5f + 10f * level;
+        float mid = Math.max(level - 10, 0), late = Math.max(level - 50, 0);
+        return 5f + 10f * level + 0.15f * mid * mid + 1.5f * late * late;
     }
 
     public float xpProgress(){

@@ -58,13 +58,13 @@ public class Curses{
     mutuallyAssured = new Curse("mutually-assured-destruction", "Dead Man's Switch", 1, "Tier 4 and Tier 5 enemies blow up after they die."),
     alienIncubation = new Curse("alien-incubation", "Mitosis", 3, "Enemy units spawn Tier 1 units when they die."),
     barrier = new Curse("barrier", "Reactive Plating", 2, "Enemy units get a short shield when first hit."),
-    avenger = new Curse("avenger", "Grudge", 2, "Each enemy death makes nearby enemies stronger."),
+    avenger = new Curse("avenger", "Grudge", 4, "Each enemy death makes nearby enemies much stronger, up to 10 times."),
     inspiration = new Curse("inspiration", "Warlord", 1, "Tier 4 and Tier 5 enemies make nearby enemies stronger."),
     evasiveManeuvers = new Curse("evasive-maneuvers", "Blink", 2, "Damaged enemy units teleport toward you."),
     transmutation = new Curse("transmutation", "Evolution", 2, "Enemy units that hit you may turn into the next tier."),
     aggressiveDeployment = new Curse("aggressive-deployment", "Reinforcements", 3, "Extra enemies arrive between waves."),
     hungryMechs = new Curse("hungry-mechs", "Hungry Mechs", 2, "Some enemy units eat their allies and grow huge."),
-    mechVirus = new Curse("mech-virus", "Mech Virus", 2, "Killing an infected enemy jams one of your turrets for 5 seconds."),
+    mechVirus = new Curse("mech-virus", "Mech Virus", 2, "Killing an infected enemy jams one of your turrets for 2 seconds."),
     overshields = new Curse("overshields", "Overshields", 1, "Enemy shields are 5 times as strong."),
     armoredSwarms = new Curse("armored-swarms", "Armored Swarms", 2, "Tier 1 to 3 enemy units get 5 armor."),
     leadership = new Curse("leadership", "Leadership", 2, "Enemies near a Tier 4 or Tier 5 enemy take at most 10 damage from any one hit."),
@@ -82,10 +82,10 @@ public class Curses{
     static final float hungryChance = 0.05f, hungryReach = 6f * 8f, virusChance = 0.01f, virusDrain = 0.05f, virusJump = 5f * 8f,
         overshieldScale = 5f, leadershipCap = 10f, leadershipRange = 15f * 8f, bigShield = 1e7f,
         towerPeriod = 60f * 22.5f, towerHealth = 2000f, towerDome = 1000f, towerGrowth = 1.1f, conquestHealth = 0.6f;
-    static final float armoredArmor = 5f, virusJam = 60f * 5f, ambushChance = 0.15f;
+    static final float armoredArmor = 5f, virusJam = 60f * 2f, ambushChance = 0.15f;
     public static final int maxRolled = 4;
     static final int hungryMaxMeals = 20, towerMax = 20;
-    static final int maxAvenger = 5;
+    static final int maxAvenger = 10;
 
     public static StatusEffect speedEffect, inspiredEffect, hungryEffect, infectedEffect;
     public static final IntSet seen = new IntSet(), carriers = new IntSet(), towers = new IntSet(), conquered = new IntSet(), infected = new IntSet();
@@ -143,9 +143,10 @@ public class Curses{
             effect = Fx.sapped;
         }};
         for(int i = 0; i < maxAvenger; i++){
-            float bonus = 0.1f * (i + 1), grow = 1f + 0.08f * (i + 1);
+            float bonus = 0.2f * (i + 1), grow = 1f + 0.06f * (i + 1);
             avengerEffects[i] = new StatusEffect("avenger-" + (i + 1)){{
-                speedMultiplier = reloadMultiplier = damageMultiplier = healthMultiplier = 1f + bonus;
+                reloadMultiplier = damageMultiplier = healthMultiplier = 1f + bonus;
+                speedMultiplier = 1f + bonus / 4f;
                 permanent = true;
                 color = Color.scarlet;
             }
@@ -593,6 +594,7 @@ public class Curses{
 
         if(on(selfDestruction)){
             float radius = unit.hitSize / 2f + 2f * tilesize;
+            Score.blameNear(type, selfDestruction.name, x, y, radius);
             Damage.damage(state.rules.waveTeam, x, y, radius, 15f + unit.maxHealth * 0.2f);
             (unit.hitSize > 20f ? Fx.massiveExplosion : Fx.blastExplosion).at(x, y);
         }
@@ -601,6 +603,7 @@ public class Curses{
             Fx.spawnShockwave.at(x, y, 12f * tilesize);
             float damage = unit.maxHealth * 0.5f;
             later(90f, () -> {
+                Score.blameNear(type, mutuallyAssured.name, x, y, 12f * tilesize);
                 Damage.damage(state.rules.waveTeam, x, y, 12f * tilesize, damage);
                 Fx.reactorExplosion.at(x, y);
                 Effect.shake(6f, 30f, x, y);
@@ -618,7 +621,7 @@ public class Curses{
         }
 
         if(on(avenger)){
-            Units.nearby(state.rules.waveTeam, x, y, 8f * tilesize, other -> {
+            Units.nearby(state.rules.waveTeam, x, y, 10f * tilesize, other -> {
                 int stacks = avengerStacks.get(other.id, 0);
                 if(stacks >= maxAvenger) return;
                 if(stacks > 0) other.unapply(avengerEffects[stacks - 1]);

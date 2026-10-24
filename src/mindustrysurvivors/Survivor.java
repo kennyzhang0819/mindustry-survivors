@@ -7,6 +7,7 @@ import arc.math.*;
 import arc.struct.*;
 import arc.util.*;
 import mindustry.content.*;
+import mindustry.core.*;
 import arc.math.geom.*;
 import mindustry.entities.*;
 import mindustry.ctype.*;
@@ -30,6 +31,7 @@ import static mindustry.Vars.*;
 public class Survivor{
     public static final int maxWeapons = 6, maxPassives = 6, weaponLevels = Weapons.maxLevel, maxGems = 400;
     public static final String startTag = "mindustry-survivors-start", poolTag = "mindustry-survivors-pool", poolKey = "mindustry-survivors-turrets";
+    public static final String enemyTag = "mindustry-survivors-enemies", enemyKey = "mindustry-survivors-enemies";
     public static final String[] pools = {"Both", "Serpulo only", "Erekir only"};
     public static final float xpRate = 1.4f;
     static final float baseMagnet = 5f * tilesize, orbitSpeed = 0.6f, healAmount = 0.3f, turretSize = 12f;
@@ -42,8 +44,10 @@ public class Survivor{
     public static StatusEffect stats, weakened, missilePower;
     static final Seq<UnitType> missiles = new Seq<>();
     static final ObjectFloatMap<Weapon> missileShake = new ObjectFloatMap<>();
+    static final ObjectFloatMap<BulletType> missileBoom = new ObjectFloatMap<>(), missileHit = new ObjectFloatMap<>();
+    static final ObjectMap<BulletType, BulletType> missileLightning = new ObjectMap<>();
     static boolean missilesTuned;
-    static final float auraDps = 300f, maxedDamage = 0.05f;
+    static final float auraDps = 300f, maxedDamage = 0.02f;
     static final float fanAngle = 7f, liquidFanAngle = 15f;
     static final float baseRegen = 0.01f;
     static float maxedBonus, bulwarkTimer, bulwarkCut, lastSpark;
@@ -66,6 +70,13 @@ public class Survivor{
     static final float[] aim = new float[maxWeapons], pointReload = new float[maxWeapons], jammed = new float[maxWeapons];
     static int shotDown;
     static final Seq<Unit>[] held = new Seq[maxWeapons];
+    static final Seq<Pool> liquidPools = new Seq<>();
+    static final float poolReload = 45f, poolRadius = 3f * tilesize, poolLife = 4f * 60f, strikeRadius = 3f * tilesize;
+
+    static class Pool{
+        float x, y, radius, life, maxLife, dps, tick;
+        Liquid liquid;
+    }
     static{
         for(int i = 0; i < held.length; i++) held[i] = new Seq<>();
     }
@@ -165,12 +176,12 @@ public class Survivor{
         might = new Passive("might", Blocks.battery, "+20% damage", 5);
         cooldown = new Passive("cooldown", Blocks.overdriveProjector, "-12% reload time", 5);
         area = new Passive("area", Blocks.impactReactor, "+20% blast radius for turrets with explosive shots", 5);
-        amount = new Passive("amount", Blocks.multiplicativeReconstructor, 5, "+1 shot for every weapon", "+1 shot for every weapon", "-10% reload time for every weapon", "Every hit goes through 1 more enemy", "+20% damage for every weapon");
+        amount = new Passive("amount", Blocks.multiplicativeReconstructor, "+1 shot for every weapon", 1);
         swiftness = new Passive("swiftness", Blocks.titaniumConveyor, "+15% move speed", 5);
         velocity = new Passive("velocity", Blocks.massDriver, "+12% range and +10% bullet speed", 5);
         evasion = new Passive("evasion", Blocks.phaseWeaver, "4% chance to dodge a hit", 5);
         magnet = new Passive("magnet", Blocks.unloader, "+40% pickup range", 5);
-        armor = new Passive("armor", Blocks.plastaniumWall, "+4 armor and -8% damage taken", 5);
+        armor = new Passive("armor", Blocks.plastaniumWall, "+4 armor and -6% damage taken", 5);
         shield = new Passive("shield", Blocks.forceProjector, 5, "A force field around you blocks enemy bullets; it holds 15% of your max health and recovers 1.5% of it per second", "+15% of your max health as shield, a bigger field and faster recovery");
         bulwark = new Passive("bulwark", Blocks.titaniumWall, 5, "Take 2.5% less damage for each enemy within 8 tiles, up to 10% less", "Up to 10% more damage reduction from nearby enemies");
         spark = new Passive("spark", Blocks.surgeWall, 5, "Enemies within 10 tiles take 60% of the damage you take, and hits may throw lightning at them", "+60% damage sent back, more lightning and stronger bolts");
@@ -179,7 +190,7 @@ public class Survivor{
         lifesteal = new Passive("lifesteal", Blocks.mendProjector, "Heals you for 1% of the damage you deal", 5);
         aura = new Passive("aura", Blocks.thoriumReactor, 5, "Enemies within 10 tiles deal 25% less damage and burn for 300 damage per second", "+3 tiles and +75 damage per second");
         growth = new Passive("growth", Blocks.cultivator, "+8% experience", 5);
-        luck = new Passive("luck", Blocks.separator, 5, "50% chance of a fourth choice, and Thorium drops 50% more often", "Always a fourth choice", "Thorium and magnets drop twice as often", "Every level-up heals you 10%", "Every level-up also offers +5% damage for the rest of the run");
+        luck = new Passive("luck", Blocks.separator, 5, "Always a fourth choice", "Thorium drops 50% more often", "Thorium and magnets drop twice as often", "Every level-up heals you 10%", "Every level-up also offers +5% damage for the rest of the run");
         Weapons.load();
         gemItems = new Item[]{Items.titanium, Items.plastanium, Items.surgeAlloy};
     }
@@ -204,7 +215,7 @@ public class Survivor{
     static Weapon build(Gun gun, int level){
         Weapons.Spec spec = Weapons.spec(gun.turret, level);
         spec.range += 0.12f * level(velocity);
-        if(!(gun.turret instanceof Turret t)){
+        if(!(gun.turret instanceof Turret t) || Weapons.support(gun.turret)){
             //support turrets that fire no bullets; their effect runs in supportUpdate
             Weapon w = new Weapon(gun.turret.name);
             w.bullet = Bullets.placeholder;
@@ -220,9 +231,6 @@ public class Survivor{
             return w;
         }
         spec.speed += 0.1f * level(velocity);
-        if(level(amount) >= 3) spec.reload *= 0.9f;
-        if(level(amount) >= 4) spec.pierce += 1;
-        if(level(amount) >= 5) spec.damage += 0.2f;
         spec.blast += 0.2f * level(area);
         BulletType b = Weapons.make(t, spec);
         b.lifesteal = 0.01f * level(lifesteal);
@@ -247,13 +255,19 @@ public class Survivor{
         w.shootSound = t.shootSound;
         w.chargeSound = t.chargeSound;
         w.continuous = b instanceof ContinuousBulletType;
-        if(t instanceof ContinuousTurret cont){
+        if(Weapons.beam(t)){
             w.alwaysContinuous = true;
-            w.shootSound = cont.loopSound;
+            w.shootSound = t.loopSound;
         }
-        w.shoot = fan(t.shoot.copy(), spec.shots + Math.min(level(amount), 2), t instanceof LiquidTurret ? liquidFanAngle : fanAngle);
+        if(Weapons.ring.containsKey(t)){
+            int n = Weapons.ring.get(t, 1) + Weapons.ringShellsPerShot * (spec.shots + level(amount));
+            w.shoot = new ShootSpread(n, 360f / n);
+        }else{
+            w.shoot = fan(t.shoot.copy(), spec.shots + level(amount), t instanceof LiquidTurret ? liquidFanAngle : fanAngle);
+        }
         w.init();
         w.region = w.heatRegion = w.cellRegion = w.outlineRegion = Core.atlas.find("mindustry-survivors-none");
+        Score.claim(b, t.name);
         return w;
     }
 
@@ -273,7 +287,10 @@ public class Survivor{
     public static void rebuild(){
         if(ownWeapons == null) ownWeapons = Chase.walker.weapons.copy();
         Chase.walker.weapons.set(ownWeapons);
-        for(Weapon w : ownWeapons) w.bullet.lifesteal = 0.01f * level(lifesteal);
+        for(Weapon w : ownWeapons){
+            w.bullet.lifesteal = 0.01f * level(lifesteal);
+            Score.claim(w.bullet, Score.walker);
+        }
         for(Gun gun : ownedGuns) Chase.walker.weapons.add(build(gun, gunLevel.get(gun, 1)));
         Chase.walker.abilities.clear();
         int field = level(shield);
@@ -302,6 +319,9 @@ public class Survivor{
         maxedBonus = 0f;
         magX.clear();
         magY.clear();
+        for(Pool p : liquidPools) dry(p);
+        liquidPools.clear();
+        Score.reset();
         spawned = false;
         if(ownWeapons != null) Chase.walker.weapons.set(ownWeapons);
     }
@@ -311,6 +331,7 @@ public class Survivor{
         reset();
         state.rules.tags.put(startTag, x + "," + y);
         state.rules.tags.put(poolTag, String.valueOf(Mathf.clamp(Core.settings.getInt(poolKey, 0), 0, pools.length - 1)));
+        state.rules.tags.put(enemyTag, String.valueOf(Mathf.clamp(Core.settings.getInt(enemyKey, 0), 0, pools.length - 1)));
     }
 
     static boolean inPool(Gun gun){
@@ -361,7 +382,7 @@ public class Survivor{
             }
         }
         pool.shuffle();
-        int count = level(luck) >= 2 || (level(luck) == 1 && Mathf.chance(0.5f)) ? 4 : 3;
+        int count = level(luck) >= 1 ? 4 : 3;
         Seq<Choice> out = pool.select(c -> true);
         out.truncate(Math.min(count, out.size));
         if(out.isEmpty()) out.add(new Choice());
@@ -389,7 +410,7 @@ public class Survivor{
     }
 
     public static void drop(Unit unit){
-        float luckDrops = level(luck) >= 3 ? 2f : 1f, kitDrops = level(luck) >= 3 ? 2f : level(luck) >= 1 ? 1.5f : 1f;
+        float luckDrops = level(luck) >= 3 ? 2f : 1f, kitDrops = level(luck) >= 3 ? 2f : level(luck) >= 2 ? 1.5f : 1f;
         if(kitX.size < maxKits && Mathf.chance(kitChance * kitDrops)){
             kitX.add(unit.x + Mathf.range(4f));
             kitY.add(unit.y + Mathf.range(4f));
@@ -457,7 +478,7 @@ public class Survivor{
             Units.nearbyEnemies(me.team, me.x, me.y, 8f * tilesize, u -> near[0]++);
             bulwarkCut = Math.min(0.025f * near[0], 0.1f * level(bulwark));
         }else if(level(bulwark) == 0) bulwarkCut = 0f;
-        stats.healthMultiplier = (1f + 0.4f * level(vitality)) / (1f - 0.08f * level(armor)) / (1f - bulwarkCut);
+        stats.healthMultiplier = (1f + 0.4f * level(vitality)) / (1f - 0.06f * level(armor)) / (1f - bulwarkCut);
         weakened.damageMultiplier = 0.75f;
         stats.reloadMultiplier = 1f / (1f - 0.12f * level(cooldown));
         stats.speedMultiplier = 1f + 0.15f * level(swiftness);
@@ -473,6 +494,8 @@ public class Survivor{
                 Fx.burning.at(u.x + Mathf.range(u.hitSize / 2f), u.y + Mathf.range(u.hitSize / 2f));
             });
         }
+
+        updatePools(me);
 
         missilePower.damageMultiplier = Weapons.missileDamage * stats.damageMultiplier;
         for(Unit u : me.team.data().units){
@@ -556,6 +579,12 @@ public class Survivor{
             Draw.reset();
         }
         Draw.z(Layer.groundUnit - 1f);
+        for(Pool p : liquidPools){
+            float fade = Mathf.clamp(p.life / 30f) * Mathf.clamp((p.maxLife - p.life) / 10f);
+            Fill.light(p.x, p.y, 30, p.radius, Tmp.c1.set(p.liquid.color).a(0.45f * fade), Tmp.c2.set(p.liquid.color).a(0.1f * fade));
+            Lines.stroke(2f, Tmp.c1.set(p.liquid.color).lerp(Color.white, 0.3f).a((0.6f + Mathf.absin(Time.time, 6f, 0.3f)) * fade));
+            Lines.circle(p.x, p.y, p.radius);
+        }
         float pad = 16f;
         float left = Core.camera.position.x - Core.camera.width / 2f - pad, right = left + Core.camera.width + pad * 2f;
         float bottom = Core.camera.position.y - Core.camera.height / 2f - pad, top = bottom + Core.camera.height + pad * 2f;
@@ -594,7 +623,7 @@ public class Survivor{
         Weapons.Spec spec = Weapons.spec(gun.turret, gunLevel.get(gun, 1));
         spec.range += 0.12f * level(velocity);
         float range = gun.turret.range * spec.range * Weapons.globalRange;
-        int beams = 1 + spec.shots + Math.min(level(amount), 2);
+        int beams = 1 + spec.shots + level(amount);
         held[i].clear();
         if(Time.time < jammed[i]) return;
 
@@ -607,12 +636,62 @@ public class Survivor{
             for(int b = 0; b < beams && b < near.size; b++){
                 Unit target = near.get(b);
                 held[i].add(target);
-                target.damageContinuousPierce(damage);
+                Score.directPierce(tractor.name, target, damage);
                 target.apply(StatusEffects.slow, 30f);
                 Tmp.v1.set(target).sub(me).setLength((tractor.force * 0.15f + (1f - target.dst(mx, my) / range) * tractor.scaledForce * 0.15f) * spec.force * Time.delta);
                 target.impulseNet(Tmp.v1);
             }
             if(held[i].any()) aim[i] = Angles.angle(mx, my, held[i].first().x, held[i].first().y);
+        }else if(gun.turret == Blocks.wave){
+            if((pointReload[i] += Time.delta) < poolReload * spec.reload * (1f - 0.12f * level(cooldown)) || !me.isShooting()) return;
+            pointReload[i] = 0f;
+            Liquid liquid = spec.ammo instanceof Liquid l ? l : Liquids.water;
+            float radius = poolRadius * spec.puddle * (1f + 0.2f * level(area));
+            for(int b = 0; b < beams; b++){
+                Vec2 spot = randomGround();
+                Pool p = new Pool();
+                p.x = spot.x;
+                p.y = spot.y;
+                p.radius = radius;
+                p.life = p.maxLife = poolLife * spec.burn;
+                p.dps = Weapons.niche.get(gun.turret, 0f) * spec.damage * Weapons.globalDamage * me.damageMultiplier;
+                p.liquid = liquid;
+                liquidPools.add(p);
+                if(b == 0) aim[i] = Angles.angle(mx, my, p.x, p.y);
+                Fx.shootLiquid.at(mx, my, Angles.angle(mx, my, p.x, p.y), liquid.color);
+                for(int k = 0; k < 3; k++) Fx.ripple.at(p.x + Mathf.range(radius / 2f), p.y + Mathf.range(radius / 2f), radius / 10f, liquid.color);
+                for(int k = 0; k < 10; k++) Fx.hitLiquid.at(p.x, p.y, k * 36f, liquid.color);
+                soak(p, 40f);
+                for(int k = 0; k < spec.fire; k++){
+                    Tile tile = world.tileWorld(p.x + Mathf.range(radius), p.y + Mathf.range(radius));
+                    if(tile != null) Fires.create(tile);
+                }
+            }
+            ((Turret)gun.turret).shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
+        }else if(gun.turret == Blocks.arc){
+            Turret arc = (Turret)gun.turret;
+            if((pointReload[i] += Time.delta) < Weapons.reload(arc, null) * spec.reload * spec.cool * (1f - 0.12f * level(cooldown)) || !me.isShooting()) return;
+            pointReload[i] = 0f;
+            BulletType bolt = Weapons.make(arc, spec);
+            float damage = bolt.damage * me.damageMultiplier, radius = strikeRadius * spec.range * (1f + 0.2f * level(area));
+            int length = Math.max(8, bolt.lightningLength / 2);
+            for(int b = 0; b < beams + 2; b++){
+                Vec2 spot = randomGround();
+                float x = spot.x, y = spot.y;
+                if(b == 0) aim[i] = Angles.angle(mx, my, x, y);
+                Fx.chainLightning.at(x + Mathf.range(12f), y + 140f, 0f, Pal.lancerLaser, new Vec2(x, y));
+                Fx.chainLightning.at(x + Mathf.range(12f), y + 140f, 0f, Color.white, new Vec2(x, y));
+                Fx.hitLaserBlast.at(x, y, Pal.lancerLaser);
+                Fx.dynamicSpikes.at(x, y, radius, Pal.lancerLaser);
+                Units.nearbyEnemies(me.team, x, y, radius, u -> {
+                    if(!u.within(x, y, radius + u.hitSize / 2f)) return;
+                    Score.direct(arc.name, u, damage);
+                    u.apply(StatusEffects.shocked, 60f);
+                    if(spec.status != null) u.apply(spec.status, 90f);
+                });
+                for(int k = 0; k < 3; k++) Lightning.create(Score.arcLightning(), me.team, Pal.lancerLaser, damage * 0.1f, x, y, Mathf.random(360f), length);
+            }
+            arc.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
         }else if(gun.turret instanceof PointDefenseTurret point){
             float reload = point.reload * spec.reload / Weapons.globalFireRate * (1f - 0.12f * level(cooldown));
             if((pointReload[i] += Time.delta) < reload) return;
@@ -633,6 +712,68 @@ public class Survivor{
                 shotDown++;
             }
             point.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
+        }
+    }
+
+    static void updatePools(Unit me){
+        for(int i = liquidPools.size - 1; i >= 0; i--){
+            Pool p = liquidPools.get(i);
+            if((p.life -= Time.delta) <= 0f){
+                dry(p);
+                liquidPools.remove(i);
+                continue;
+            }
+            if((p.tick += Time.delta) < 15f) continue;
+            p.tick = 0f;
+            float hit = p.dps * 15f / 60f;
+            Units.nearbyEnemies(me.team, p.x, p.y, p.radius, u -> {
+                if(!u.within(p.x, p.y, p.radius + u.hitSize / 2f)) return;
+                Score.direct(Blocks.wave.name, u, hit);
+                u.apply(p.liquid.effect, 90f);
+                if(Mathf.chance(0.4f)) Fx.hitLiquid.at(u.x, u.y, Mathf.random(360f), p.liquid.color);
+            });
+            soak(p, 8f);
+        }
+    }
+
+    static void soak(Pool p, float amount){
+        int r = (int)(p.radius / tilesize);
+        int cx = World.toTile(p.x), cy = World.toTile(p.y);
+        for(int dx = -r; dx <= r; dx++){
+            for(int dy = -r; dy <= r; dy++){
+                if(dx * dx + dy * dy > r * r) continue;
+                Tile tile = world.tile(cx + dx, cy + dy);
+                if(tile != null && !tile.solid()) Puddles.deposit(tile, p.liquid, amount);
+            }
+        }
+    }
+
+    static Vec2 randomGround(){
+        float w = Core.camera.width * 0.9f, h = Core.camera.height * 0.9f;
+        Vec2 spot = new Vec2();
+        for(int t = 0; t < 10; t++){
+            spot.set(Core.camera.position.x + Mathf.range(w / 2f), Core.camera.position.y + Mathf.range(h / 2f));
+            Tile tile = world.tileWorld(spot.x, spot.y);
+            if(tile != null && !tile.solid()) break;
+        }
+        return spot;
+    }
+
+    static void dry(Pool p){
+        int r = (int)(p.radius / tilesize) + 2;
+        int cx = World.toTile(p.x), cy = World.toTile(p.y);
+        for(int dx = -r; dx <= r; dx++){
+            for(int dy = -r; dy <= r; dy++){
+                Tile tile = world.tile(cx + dx, cy + dy);
+                if(tile == null) continue;
+                Puddle puddle = Puddles.get(tile);
+                if(puddle != null && puddle.liquid == p.liquid) puddle.remove();
+                Fire fire = Fires.get(tile);
+                if(fire != null){
+                    Fx.steam.at(fire);
+                    fire.remove();
+                }
+            }
         }
     }
 
@@ -673,9 +814,29 @@ public class Survivor{
             for(Weapon w : type.weapons){
                 if(!missileShake.containsKey(w)) missileShake.put(w, w.shake);
                 w.shake = on ? 0f : missileShake.get(w, w.shake);
+                calmBoom(w.bullet, on);
+                calmBoom(w.bullet.fragBullet, on);
                 w.bullet.collidesAir = on;
                 if(w.bullet.fragBullet != null) w.bullet.fragBullet.collidesAir = on;
             }
+        }
+    }
+
+    static void calmBoom(@Nullable BulletType b, boolean on){
+        if(b == null) return;
+        if(!missileBoom.containsKey(b)){
+            missileBoom.put(b, b.despawnShake);
+            missileHit.put(b, b.hitShake);
+        }
+        b.despawnShake = on ? 0f : missileBoom.get(b, 0f);
+        b.hitShake = on ? 0f : missileHit.get(b, 0f);
+        if(b.lightningType == null) return;
+        if(on){
+            if(!missileLightning.containsKey(b)) missileLightning.put(b, b.lightningType);
+            b.lightningType = missileLightning.get(b).copy();
+            Score.source.put(b.lightningType, Blocks.scathe.name);
+        }else if(missileLightning.containsKey(b)){
+            b.lightningType = missileLightning.get(b);
         }
     }
 
@@ -713,7 +874,7 @@ public class Survivor{
     }
 
     static void write(DataOutput out) throws IOException{
-        out.writeInt(2);
+        out.writeInt(3);
         out.writeInt(ownedGuns.size);
         for(Gun gun : ownedGuns){
             out.writeUTF(gun.turret.name);
@@ -725,6 +886,7 @@ public class Survivor{
             out.writeInt(level(passive));
         }
         out.writeFloat(maxedBonus);
+        Score.write(out);
     }
 
     static void read(DataInput in) throws IOException{
@@ -747,9 +909,10 @@ public class Survivor{
             Passive passive = passives.find(p -> p.id.equals(id));
             if(passive == null) continue;
             ownedPassives.add(passive);
-            passiveLevel.put(passive, lvl);
+            passiveLevel.put(passive, Math.min(lvl, passive.maxLevel));
         }
         if(version >= 2) maxedBonus = in.readFloat();
+        if(version >= 3) Score.read(in);
         rebuild();
     }
 
@@ -776,7 +939,7 @@ public class Survivor{
         });
         Events.on(WorldLoadBeginEvent.class, e -> reset());
         Events.on(UnitDestroyEvent.class, e -> {
-            if(Arena.active() && e.unit.team == state.rules.waveTeam) drop(e.unit);
+            if(Arena.active() && e.unit.team == state.rules.waveTeam && !(e.unit.type instanceof MissileUnitType)) drop(e.unit);
         });
         Events.run(Trigger.update, Survivor::update);
         Events.run(Trigger.draw, Survivor::draw);

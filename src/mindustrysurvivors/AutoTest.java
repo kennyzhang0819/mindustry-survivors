@@ -65,6 +65,26 @@ public class AutoTest{
             Events.run(Trigger.newGame, () -> later(4f, this::damage));
             return;
         }
+        if("death".equals(mode)){
+            later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
+            Events.run(Trigger.newGame, () -> later(4f, () -> {
+                Unit me = player.unit();
+                for(int i = 0; i < 4; i++){
+                    Tmp.v1.trns(i * 90f, 40f);
+                    UnitTypes.dagger.spawn(state.rules.waveTeam, me.x + Tmp.v1.x, me.y + Tmp.v1.y);
+                }
+                me.health = 1f;
+                later(6f, () -> {
+                    Log.info("[Survivors-Test] Death: gameOver=@ lost=@ killer=@ how=@", state.gameOver, Score.lost, Score.killer, Score.killerHow);
+                    shot("death-score");
+                });
+                later(7f, () -> {
+                    Log.info("[Survivors-Test] RESULT done");
+                    Core.app.exit();
+                });
+            }));
+            return;
+        }
         if("chase".equals(mode)){
             Chase.stressTest(this);
             return;
@@ -102,7 +122,7 @@ public class AutoTest{
             later(8.3f, () -> Core.scene.getDialog().hide());
             later(8.6f, () -> {
                 Core.scene.getDialog().hide();
-                SurvivorsRun.startNew(Difficulty.eradication, 4);
+                SurvivorsRun.startNew(Difficulty.eradication, SurvivorsRun.maxHeat);
             });
             Events.run(Trigger.newGame, () -> {
                 if(!continued) later(7f, this::arena);
@@ -329,6 +349,24 @@ public class AutoTest{
                 Survivor.gemValue.size, Survivor.kitX.size, (int)run.xp, run.level, run.pendingModifiers, state.stats.enemyUnitsDestroyed,
                 state.rules.waveTeam.data().units.count(e -> e.type.naval), state.rules.waveTeam.data().units.count(e -> e.type.naval && !e.floorOn().isLiquid));
         });
+        later(10.2f, () -> {
+            firing = true;
+            Events.run(Trigger.uiDrawEnd, () -> {
+                Unit u = player.unit();
+                if(!firing || u == null) return;
+                Unit target = mindustry.entities.Units.closestEnemy(u.team, u.x, u.y, 400f, e -> true);
+                if(target == null) return;
+                player.shooting = u.isShooting = true;
+                u.aim(target.x, target.y);
+            });
+        });
+        later(11f, () -> {
+            firing = false;
+            player.shooting = false;
+            Log.info("[Survivors-Test] Score: total=@ damage=@ kills=@", (int)Score.total(), Score.damage, Score.kills);
+            SurvivorsUI.showScore(false);
+        });
+        later(11.6f, () -> shot("04b-score"));
         later(12f, () -> {
             if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
             Arena.skipTo(20);
@@ -344,6 +382,7 @@ public class AutoTest{
                 Log.info("[Survivors-Test] Continued: active=@ wave=@ player=@ weapons=@ (before @) mounts=@",
                     SurvivorsRun.active(), state.wave, player.unit().type.name, Survivor.ownedGuns.map(g -> g.turret.name + ":" + Survivor.gunLevel.get(g, 0)), before, player.unit().mounts.length);
                 shot("05-continued");
+                Log.info("[Survivors-Test] Score after continuing: total=@", (int)Score.total());
                 Log.info("[Survivors-Test] Shake in a run: dagger death @ fortress step @ scepter death @ fortress shot @", UnitTypes.dagger.deathShake, UnitTypes.fortress.stepShake, UnitTypes.scepter.deathShake, UnitTypes.fortress.weapons.first().bullet.hitShake);
                 later(1f, () -> {
                     logic.reset();
@@ -385,8 +424,10 @@ public class AutoTest{
             player.unit().isShooting = true;
         });
         Seq<Runnable> steps = new Seq<>();
+        String only = System.getenv("SURVIVORS_DAMAGE_ONLY");
         for(Block block : Weapons.steps.keys()){
-            if(!(block instanceof Turret turret) || Weapons.support(turret)) continue;
+            if(!(block instanceof Turret turret)) continue;
+            if(only != null && !Seq.with(only.split(",")).contains(turret.name)) continue;
             for(int level : new int[]{1, 10}){
                 steps.add(() -> measure(turret, level));
             }
@@ -408,6 +449,10 @@ public class AutoTest{
         me.health = me.maxHealth;
         Survivor.ownedGuns.clear();
         Survivor.gunLevel.clear();
+        Survivor.liquidPools.clear();
+        Groups.all.copy(new Seq<>()).each(e -> {
+            if(e instanceof Firec || e instanceof Puddlec) e.remove();
+        });
         Survivor.Gun gun = Survivor.guns.find(g -> g.turret == turret);
         for(int i = 0; i < level; i++) Survivor.give(gun);
         for(Unit d : dummies) d.remove();
@@ -425,14 +470,17 @@ public class AutoTest{
         float seconds = 3f;
         later(0.5f, () -> {
             for(Unit d : dummies) d.health = d.maxHealth;
+            Score.reset();
         });
-        if(level == 10 && Weapons.erekir.contains(turret)) later(2f, () -> shot("damage-" + turret.name));
+        if(level == 10) later(2f, () -> shot("damage-" + turret.name));
         later(0.5f + seconds, () -> {
             float total = 0f;
             for(Unit d : dummies) total += d.maxHealth - d.health;
             float center = dummies.get(4).maxHealth - dummies.get(4).health;
             firing = false;
             Log.info("[Survivors-Test] Damage @ level @: @ per second to the group, @ per second to the middle dummy, @ tiles away", turret.name, level, (int)(total / seconds), (int)(center / seconds), (int)((dummyX - me.x) / 8f));
+            Log.info("[Survivors-Test] Score @ level @: credited @ of @ dealt, all sources @", turret.name, level, (int)Score.damage.get(turret.name, 0f), (int)total, Score.damage);
+            Score.reset();
         });
     }
 

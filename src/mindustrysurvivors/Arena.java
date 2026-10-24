@@ -45,10 +45,16 @@ public class Arena{
     public static class Family{
         public final String name;
         public final UnitType[] tiers;
+        public boolean erekir;
 
         Family(String name, UnitType... tiers){
             this.name = name;
             this.tiers = tiers;
+        }
+
+        Family erekir(){
+            erekir = true;
+            return this;
         }
 
         public boolean naval(){
@@ -97,7 +103,10 @@ public class Arena{
             new Family("Crawler", UnitTypes.crawler, UnitTypes.atrax, UnitTypes.spiroct, UnitTypes.arkyid, UnitTypes.toxopid),
             new Family("Flare", UnitTypes.flare, UnitTypes.horizon, UnitTypes.zenith, UnitTypes.antumbra, UnitTypes.eclipse),
             new Family("Risso", UnitTypes.risso, UnitTypes.minke, UnitTypes.bryde, UnitTypes.sei, UnitTypes.omura),
-            new Family("Retusa", UnitTypes.retusa, UnitTypes.oxynoe, UnitTypes.cyerce, UnitTypes.aegires, UnitTypes.navanax)
+            new Family("Retusa", UnitTypes.retusa, UnitTypes.oxynoe, UnitTypes.cyerce, UnitTypes.aegires, UnitTypes.navanax),
+            new Family("Stell", UnitTypes.stell, UnitTypes.locus, UnitTypes.precept, UnitTypes.vanquish, UnitTypes.conquer).erekir(),
+            new Family("Merui", UnitTypes.merui, UnitTypes.cleroi, UnitTypes.anthicus, UnitTypes.tecta, UnitTypes.collaris).erekir(),
+            new Family("Elude", UnitTypes.elude, UnitTypes.avert, UnitTypes.obviate, UnitTypes.quell, UnitTypes.disrupt).erekir()
         );
 
         String[] list = script.split(";");
@@ -311,6 +320,10 @@ public class Arena{
         return wave <= lastWave ? wave : lastWave - 9 + (wave - lastWave - 1) % 10;
     }
 
+    public static int shownWave(){
+        return Math.max(state.wave - 1, 1);
+    }
+
     public static int cycle(int wave){
         return wave <= lastWave ? 0 : (wave - lastWave - 1) / 10 + 1;
     }
@@ -351,7 +364,8 @@ public class Arena{
 
     public static Family[] deal(long runId, int wave){
         Rand rand = new Rand(runId * 7919L + wave * 104729L);
-        Seq<Family> pool = families.copy();
+        int enemies = Strings.parseInt(state.rules.tags.get(Survivor.enemyTag, "1"), 1);
+        Seq<Family> pool = families.select(f -> enemies == 0 || (enemies == 1) != f.erekir);
         Family[] out = new Family[3];
         if(wave <= 2){
             Seq<Family> walkers = pool.select(f -> !f.air() && !f.naval());

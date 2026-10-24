@@ -252,15 +252,22 @@ public class SurvivorsUI{
 
     void infoPage(Table t){
         t.top().left().defaults().left().padBottom(8f);
-        t.add("How to play").color(Pal.accent).row();
-        for(String line : new String[]{
+        infoSection(t, "How to play",
             "Survive " + Arena.lastWave + " waves on a random map. Enemies chase you from every side.",
             "Kill enemies and pick up their gems to level up.",
-            "Turrets orbit you and fire with you. They have been reworked and balanced.",
-            "Up to " + Survivor.maxPassives + " passives boost you."
-        }){
-            t.add("[accent]-[] " + line).wrap().width(860f).row();
-        }
+            "Turrets orbit you and fire with you.",
+            "Up to " + Survivor.maxPassives + " passives boost you.");
+        infoSection(t, "Changes",
+            "All turrets have been reworked and rebalanced. Give all of them a try.",
+            "All enemy stats are unchanged.",
+            "There is no core and nothing to build.",
+            "Every enemy can hit both ground and air.",
+            "Boats can cross land at half speed.");
+    }
+
+    static void infoSection(Table t, String title, String... lines){
+        t.add(title).color(Pal.accent).padTop(t.getChildren().isEmpty() ? 0f : 12f).row();
+        for(String line : lines) t.add("[accent]-[] " + line).wrap().width(860f).row();
     }
 
     static void turretDetail(Table t, @Nullable BaseTurret turret){
@@ -433,13 +440,63 @@ public class SurvivorsUI{
         rewardDialog.show();
     }
 
+    public static void showScore(boolean end){
+        BaseDialog dialog = end ? new BaseDialog("Run over", pageStyle(true)) : new BaseDialog("Score");
+        Table c = dialog.cont;
+        float total = Score.total();
+        Seq<String> keys = new Seq<>();
+        for(var e : Score.damage) keys.add(e.key);
+        for(var e : Score.kills) if(!keys.contains(e.key)) keys.add(e.key);
+        keys.sort(k -> -Score.damage.get(k, 0f));
+        float top = keys.isEmpty() ? 1f : Math.max(Score.damage.get(keys.first(), 0f), 1f);
+        int allKills = 0;
+        for(var e : Score.kills) allKills += e.value;
+        if(end && Score.lost){
+            c.table(row -> {
+                row.add("[scarlet]Killed by").padRight(8f);
+                if(Score.killer == null){
+                    row.add("[lightgray]unknown");
+                }else{
+                    row.image(Score.killer.uiIcon).size(40f).scaling(Scaling.fit).padRight(6f);
+                    row.add(Score.killer.localizedName + (Score.killerHow.isEmpty() ? "" : " [lightgray](" + Score.killerHow + ")"));
+                }
+            }).padBottom(10f).row();
+        }
+        c.add((end ? "Wave " + Arena.shownWave() + "   " : "") + "Total damage [accent]" + mindustry.core.UI.formatAmount((long)total) + "[]   Kills [accent]" + allKills).padBottom(12f).row();
+        if(keys.isEmpty()){
+            c.add("[lightgray]No damage dealt yet.").pad(20f).row();
+        }else{
+            c.pane(Styles.noBarPane, rows -> {
+                rows.defaults().pad(3f);
+                for(int i = 0; i < keys.size; i++){
+                    String key = keys.get(i);
+                    boolean first = i == 0;
+                    float dealt = Score.damage.get(key, 0f), share = total <= 0f ? 0f : dealt / total;
+                    Block block = Score.walker.equals(key) ? null : content.block(key);
+                    TextureRegion icon = block == null ? Chase.walker.uiIcon : block.uiIcon;
+                    String name = block == null ? "Walker gun" : block.localizedName;
+                    Survivor.Gun gun = block == null ? null : Survivor.ownedGuns.find(g -> g.turret == block);
+                    rows.add((i == 0 ? "[accent]" : "[lightgray]") + "#" + (i + 1)).width(40f).left();
+                    rows.image(icon).size(36f);
+                    rows.add(name + (gun == null ? "" : " [lightgray]Lv " + Survivor.gunLevel.get(gun, 1))).width(190f).left().padLeft(6f);
+                    rows.add(new Bar(() -> mindustry.core.UI.formatAmount((long)dealt), () -> first ? Pal.accent : Pal.lancerLaser, () -> dealt / top)).size(240f, 26f);
+                    rows.add(Strings.autoFixed(share * 100f, 1) + "%").width(70f).right();
+                    rows.add("[lightgray]" + Score.kills.get(key, 0) + " kills").width(110f).right();
+                    rows.row();
+                }
+            }).maxHeight(Core.graphics.getHeight() / Scl.scl() * 0.65f).row();
+        }
+        dialog.addCloseButton();
+        if(!end) pauseWhileShown(dialog);
+        dialog.show();
+    }
+
     public void showEndlessChoice(){
         BaseDialog dialog = new BaseDialog("Wave " + Arena.lastWave + " cleared!");
         Table c = dialog.cont;
-        c.add("You survived all " + Arena.lastWave + " waves.").padBottom(10f).row();
-        c.add("[lightgray]Endless repeats waves " + (Arena.lastWave - 9) + " to " + Arena.lastWave + ", and every ten waves enemies get another 100% health and damage.").wrap().width(560f).padBottom(14f).row();
+        c.add("Keep fighting harder and harder enemies?").padBottom(14f).row();
         c.table(row -> {
-            row.button("Endless", Icon.refresh, () -> {
+            row.button("Keep fighting", Icon.refresh, () -> {
                 dialog.hide();
                 Arena.startEndless();
             }).size(270f, 64f).pad(4f);
@@ -605,6 +662,13 @@ public class SurvivorsUI{
             t.button(Survivor.pools[i], Styles.togglet, () -> Core.settings.put(Survivor.poolKey, pool))
                 .checked(b -> Core.settings.getInt(Survivor.poolKey, 0) == pool).size(360f, 54f).row();
         }
+        t.add("Enemies").color(Pal.accent).padTop(12f).padBottom(4f).row();
+        t.add("Which planet's enemies waves bring.").color(Color.lightGray).padBottom(6f).row();
+        for(int i = 0; i < Survivor.pools.length; i++){
+            int pool = i;
+            t.button(Survivor.pools[i], Styles.togglet, () -> Core.settings.put(Survivor.enemyKey, pool))
+                .checked(b -> Core.settings.getInt(Survivor.enemyKey, 0) == pool).size(360f, 54f).row();
+        }
         t.add("Changes apply to new runs.").color(Color.lightGray).padTop(6f).row();
     }
 
@@ -714,12 +778,33 @@ public class SurvivorsUI{
         dialog.show();
     }
 
+    //the game's label shows the next wave, so during a run it is swapped for the one being fought
+    static void showCurrentWave(Table waves){
+        arc.scene.Group status = waves.find("status");
+        if(status == null || !(status.getChildren().find(e -> e instanceof Label) instanceof Label label)) return;
+        try{
+            var field = arc.scene.Element.class.getDeclaredField("update");
+            field.setAccessible(true);
+            Runnable game = (Runnable)field.get(label);
+            if(game == null) return;
+            label.update(() -> {
+                game.run();
+                if(!SurvivorsRun.active() || state.wave == Arena.shownWave()) return;
+                String next = Core.bundle.format("wave", state.wave), text = label.getText().toString();
+                if(text.contains(next)) label.setText(text.replace(next, Core.bundle.format("wave", Arena.shownWave())));
+            });
+        }catch(Exception e){
+            Log.err("[Survivors] Could not change the wave label", e);
+        }
+    }
+
     void buildHud(){
         Table panel = new Table(Tex.wavepane);
         panel.name = "survivors-hud";
         panel.visible(() -> SurvivorsRun.active() && ui.hudfrag.shown());
         panel.left();
         panel.defaults().growX();
+        panel.label(() -> run() == null ? "" : "Difficulty: " + coloredDifficulty(Arena.difficulty().name(), run().heat)).left().padLeft(6f).padTop(2f).row();
         panel.add(new Bar(() -> run() == null ? "" : SurvivorsRun.captured() ? "Sector captured" : "Level " + (run().level + 1), () -> Pal.accent, () -> run() == null ? 0f : SurvivorsRun.captured() ? 1f : run().xpProgress())).height(24f).pad(4f).row();
         Table cursed = new Table();
         String[] lastCurses = {""};
@@ -749,6 +834,7 @@ public class SurvivorsUI{
         });
         panel.add(admin).growX();
         panel.row();
+        panel.button("Score", Icon.list, Styles.cleart, () -> showScore(false)).growX().height(36f).row();
         Table copies = new Table();
         String[] last = {""};
         copies.update(() -> {
@@ -763,6 +849,7 @@ public class SurvivorsUI{
         panel.add(copies).left().pad(2f);
 
         Table waves = ui.hudGroup.find("waves");
+        if(waves != null) showCurrentWave(waves);
         if(waves != null){
             waves.row();
             waves.add(panel).growX().left().padTop(4f);
