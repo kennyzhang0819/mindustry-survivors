@@ -201,16 +201,56 @@ public class AutoTest{
             }));
             return;
         }
-        if("modinfo".equals(mode)){
+        if("listing".equals(mode)){
             later(2f, () -> {
-                var raw = arc.util.serialization.Jval.read(mods.getMod("mindustry-survivors").root.child("mod.hjson").readString());
-                mindustry.ui.dialogs.BaseDialog dialog = new mindustry.ui.dialogs.BaseDialog(raw.getString("displayName", ""));
-                dialog.cont.pane(p -> p.add(raw.getString("description", "")).width(560f).wrap().left()).grow();
-                dialog.addCloseButton();
-                dialog.show();
+                var mod = mods.getMod("mindustry-survivors");
+                var raw = arc.util.serialization.Jval.read(mod.root.child("mod.hjson").readString());
+                mindustry.mod.ModListing listing = new mindustry.mod.ModListing();
+                listing.repo = "kennyzhang0819/mindustry-survivors";
+                listing.name = raw.getString("displayName", "");
+                listing.internalName = raw.getString("name", "");
+                listing.author = raw.getString("author", "");
+                listing.description = raw.getString("description", "");
+                listing.minGameVersion = raw.getString("minGameVersion", "");
+                listing.version = raw.getString("version", "");
+                listing.hasJava = true;
+                listing.hasIcon = true;
+                listing.iconHash = "preview";
+                listing.lastUpdated = "2026-10-25T00:00:00Z";
+                Fi cache = dataDirectory.child("modIconCache");
+                cache.mkdirs();
+                mod.root.child("icon.png").copyTo(cache.child(Strings.sanitizeFilename(listing.repo + "_" + listing.iconHash) + ".png"));
+                try{
+                    var field = mindustry.ui.dialogs.ModBrowserDialog.class.getDeclaredField("modList");
+                    field.setAccessible(true);
+                    field.set(ui.mods.browser, Seq.with(listing));
+                }catch(Exception e){
+                    Log.err(e);
+                }
+                ui.mods.browser.show();
             });
-            later(3.5f, () -> shot("modinfo"));
+            later(4f, () -> shot("listing-browser"));
             later(4.5f, () -> {
+                Element ours = Core.scene.find(e -> e instanceof Button && collectContains(e, "Mindustry Survivors"));
+                if(ours != null) ours.fireClick();
+            });
+            later(5.5f, () -> shot("listing-details"));
+            later(6f, () -> {
+                while(Core.scene.getDialog() != null) Core.scene.getDialog().hide(null);
+                ui.mods.show();
+            });
+            later(7f, () -> shot("installed-list"));
+            later(7.3f, () -> {
+                try{
+                    var method = mindustry.ui.dialogs.ModsDialog.class.getDeclaredMethod("showMod", mindustry.mod.Mods.LoadedMod.class);
+                    method.setAccessible(true);
+                    method.invoke(ui.mods, mods.getMod("mindustry-survivors"));
+                }catch(Exception e){
+                    Log.err(e);
+                }
+            });
+            later(8.3f, () -> shot("installed-details"));
+            later(9f, () -> {
                 Log.info("[Survivors-Test] RESULT done");
                 Core.app.exit();
             });
@@ -306,6 +346,12 @@ public class AutoTest{
         }
         Log.info("[Survivors-Test] RESULT unknown mode @", mode);
         Core.app.exit();
+    }
+
+    static boolean collectContains(Element e, String text){
+        Seq<String> texts = new Seq<>();
+        collectText(e, texts);
+        return texts.contains(t -> t.contains(text));
     }
 
     static boolean hasText(Element e, String text){

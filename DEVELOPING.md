@@ -20,7 +20,7 @@ Set `SURVIVORS_AUTOTEST=damage` to measure every turret: each one fires for 3 se
 
 Set `SURVIVORS_AUTOTEST=boss` to check both bosses: each one is spawned next to you, hit with slowing and stunning effects (which it should shrug off), and the first is killed so you walk onto its chest. It takes about 25 seconds.
 
-To run several checks at once, each in its own empty data folder, run `tools/autotest.sh arena death fresh damage:duo,hail`. It reports every test that failed: a crash, an error in the log, an error window, a Java crash, or a test that never finished. `look:cyclone:10` fires a turret at that level into open ground and saves three screenshots, and `chase:swarmer:10` runs the stress test with that turret firing. `modinfo` shows the mod's description with its colors, the way the in-game Mod Browser shows it, and saves a screenshot.
+To run several checks at once, each in its own empty data folder, run `tools/autotest.sh arena death fresh damage:duo,hail`. It reports every test that failed: a crash, an error in the log, an error window, a Java crash, or a test that never finished. `look:cyclone:10` fires a turret at that level into open ground and saves three screenshots, and `chase:swarmer:10` runs the stress test with that turret firing. `listing` opens the game's own Mod Browser and Mods screens with this mod in them and saves screenshots of the list and the details pages, so you can see the listing before a release.
 
 Set `SURVIVORS_AUTOTEST=chase` for a stress test: it starts a run, moves your unit in a circle and adds enemies in steps up to 5,000, logging frame times and how many enemies are closing in on you.
 
