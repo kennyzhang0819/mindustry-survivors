@@ -2,7 +2,7 @@
   <img src="art/banner.png" width="720" alt="Mindustry Survivors">
 </p>
 
-Mindustry, but you play it like Vampire Survivors.
+Vampire Survivors in Mindustry!
 
 ## How to play
 
