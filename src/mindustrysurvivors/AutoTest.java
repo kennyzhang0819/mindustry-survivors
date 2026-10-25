@@ -67,14 +67,67 @@ public class AutoTest{
             later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
             Events.run(Trigger.newGame, () -> later(5f, () -> {
                 SurvivorsRun run = SurvivorsRun.current;
-                Survivor.give(Survivor.guns.first());
+                SurvivorsUI rui = MindustrySurvivorsMod.ui;
+                for(Block turret : new Block[]{Blocks.duo, Blocks.hail, Blocks.lancer}) Survivor.adminToggle(Survivor.guns.find(g -> g.turret == turret));
+                Survivor.adminToggle(Survivor.armor);
+                Survivor.adminToggle(Survivor.vitality);
+                Survivor.adminToggle(Survivor.guns.find(g -> g.turret == Blocks.lancer));
+                Survivor.adminToggle(Survivor.guns.find(g -> g.turret == Blocks.salvo));
                 int before = run.level;
                 Survivor.jumpTo(21);
                 Arena.skipTo(21);
-                Log.info("[Survivors-Test] Jump: level before=@", before);
+                Log.info("[Survivors-Test] Jump: level before=@ picks=@", before, run.pendingPicks);
                 Log.info("[Survivors-Test] Fresh start: wave=@ level=@ picks=@ weapons=@ xp=@", state.wave, run.level, run.pendingPicks, Survivor.ownedGuns.size, (int)run.xp);
-                later(2f, () -> shot("fresh-start"));
+                if(player.unit() != null) player.unit().apply(StatusEffects.invincible, 60f * 60f);
+                later(1f, () -> {
+                    if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
+                    run.pendingPicks = 1;
+                    rui.showLevelUp();
+                    rui.choose(0);
+                    Log.info("[Survivors-Test] Early click right after the level-up opened: picks left=@ (should stay 1)", run.pendingPicks);
+                });
+                later(1.4f, () -> shot("levelup-typing"));
                 later(3f, () -> {
+                    Element skip = Core.scene.find(e -> e instanceof Button b && b.visible && hasText(b, "Skip"));
+                    if(skip != null) skip.fireClick();
+                    Log.info("[Survivors-Test] Skip: button found=@ picks left=@ (should be 0)", skip != null, run.pendingPicks);
+                });
+                later(4f, () -> {
+                    Log.info("[Survivors-Test] RESULT done");
+                    Core.app.exit();
+                });
+            }));
+            return;
+        }
+        if("look".equals(mode)){
+            later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
+            Events.run(Trigger.newGame, () -> later(4f, () -> {
+                state.rules.waveTimer = false;
+                for(Unit u : state.rules.waveTeam.data().units.copy()) u.remove();
+                Unit me = player.unit();
+                me.apply(StatusEffects.invincible, 60f * 60f);
+                String give = System.getenv("SURVIVORS_TEST_GIVE");
+                String name = "look";
+                for(String entry : give == null ? new String[0] : give.split(",")){
+                    String[] parts = entry.split(":");
+                    Survivor.Gun gun = Survivor.guns.find(g -> g.turret.name.equals(parts[0]));
+                    for(int i = 0; i < (parts.length > 1 ? Strings.parseInt(parts[1], 1) : 1); i++) Survivor.give(gun);
+                    name += "-" + parts[0] + (parts.length > 1 ? parts[1] : "");
+                }
+                String shotName = name;
+                firing = true;
+                dummyX = me.x + 30f * tilesize;
+                dummyY = me.y;
+                Events.run(Trigger.uiDrawEnd, () -> {
+                    if(!firing || player.unit() == null) return;
+                    player.shooting = player.unit().isShooting = true;
+                    player.unit().aim(dummyX, dummyY);
+                });
+                for(int i = 0; i < 3; i++){
+                    int index = i;
+                    later(2.5f + i * 0.5f, () -> shot(shotName + "-" + index));
+                }
+                later(4.5f, () -> {
                     Log.info("[Survivors-Test] RESULT done");
                     Core.app.exit();
                 });
@@ -169,6 +222,12 @@ public class AutoTest{
         }
         Log.info("[Survivors-Test] RESULT unknown mode @", mode);
         Core.app.exit();
+    }
+
+    static boolean hasText(Element e, String text){
+        Seq<String> texts = new Seq<>();
+        collectText(e, texts);
+        return texts.contains(text);
     }
 
     static void collectText(Element e, Seq<String> out){
@@ -474,7 +533,7 @@ public class AutoTest{
         Survivor.gunLevel.clear();
         Survivor.liquidPools.clear();
         Groups.all.copy(new Seq<>()).each(e -> {
-            if(e instanceof Firec || e instanceof Puddlec) e.remove();
+            if(e instanceof Firec || e instanceof Puddlec || e instanceof Bulletc) e.remove();
         });
         Survivor.Gun gun = Survivor.guns.find(g -> g.turret == turret);
         for(int i = 0; i < level; i++) Survivor.give(gun);

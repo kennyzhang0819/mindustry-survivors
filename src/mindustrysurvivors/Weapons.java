@@ -31,6 +31,8 @@ public class Weapons{
     static final ObjectMap<Block, Cons<Spec>> innate = new ObjectMap<>();
     public static final ObjectIntMap<Block> ring = new ObjectIntMap<>();
     public static final int ringShellsPerShot = 4;
+    public static final float seekRange = 35f * 8f;
+    public static final ObjectFloatMap<BulletType> seekTurn = new ObjectFloatMap<>();
     public static float missileDamage = 1f;
     static Effect breachHit, lancerHit;
 
@@ -89,7 +91,7 @@ public class Weapons{
     }
 
     public static boolean support(BaseTurret turret){
-        return turret instanceof TractorBeamTurret || turret instanceof PointDefenseTurret || turret == Blocks.wave || turret == Blocks.arc || turret == Blocks.cyclone;
+        return turret instanceof TractorBeamTurret || turret instanceof PointDefenseTurret || turret == Blocks.wave || turret == Blocks.arc || turret == Blocks.ripple || turret == Blocks.cyclone;
     }
 
     public static float hitDamage(BulletType b){
@@ -176,6 +178,13 @@ public class Weapons{
             round.trailWidth = 1.6f;
             round.trailColor = round.backColor;
             round.hitEffect = round.despawnEffect = Fx.hitBulletBig;
+        }
+        if(turret == Blocks.swarmer){
+            b.lifetime *= 2.5f;
+            seekTurn.put(b, Math.max(b.homingPower, 0.1f));
+            b.homingPower = 0f;
+            b.weaveScale = 6f;
+            b.weaveMag = 3f;
         }
         if(turret == Blocks.salvo && b instanceof BasicBulletType round){
             round.width *= 1.7f;
@@ -295,7 +304,11 @@ public class Weapons{
     }
 
     static Step shells(int n){
-        return new Step("+" + n * ringShellsPerShot + " shells in the ring", null, s -> s.shots += n);
+        return ringAdd(n, "shells");
+    }
+
+    static Step ringAdd(int n, String what){
+        return new Step("+" + n * ringShellsPerShot + " " + what + " in the ring", null, s -> s.shots += n);
     }
 
     static Step shots(int n){
@@ -345,7 +358,6 @@ public class Weapons{
         baseRange.put(Blocks.ripple, 0.8f);
         slower.put(Blocks.duo, 0.45f);
         slower.put(Blocks.hail, 0.6f);
-        slower.put(Blocks.ripple, 0.6f);
         slower.put(Blocks.arc, 3f);
         innate.put(Blocks.duo, s -> {
             s.speed = 2.2f;
@@ -357,8 +369,8 @@ public class Weapons{
             s.blast = 1.6f;
             s.speed = 1.4f;
         });
-        ring.put(Blocks.ripple, 16);
         ring.put(Blocks.scatter, 12);
+        ring.put(Blocks.swarmer, 3);
         baseRange.put(Blocks.scatter, 1.3f);
         innate.put(Blocks.ripple, s -> {
             s.blast = 1.5f;
@@ -427,10 +439,11 @@ public class Weapons{
         );
         intro.put(Blocks.wave, "Orbits you and throws pools of Water at random spots on screen while you shoot, hurting everything that stands in them.");
         intro.put(Blocks.duo, "Orbits you and fires twin streams of fast rounds that go through enemies wherever you shoot.");
-        intro.put(Blocks.cyclone, "Orbits you and, while you shoot, spins a whirlwind of flak at your cursor that pulls enemies in and bursts on them.");
+        intro.put(Blocks.cyclone, "Orbits you and, while you shoot, sends laser rings toward your cursor that widen as they fly and burn everything they pass over.");
+        intro.put(Blocks.swarmer, "Orbits you and fires missiles in three turning streams around you that then chase the closest enemy nearby.");
         intro.put(Blocks.scatter, "Orbits you and fires a ring of flak in every direction when you shoot.");
         intro.put(Blocks.arc, "Orbits you and calls lightning strikes down on random ground across the screen while you shoot.");
-        intro.put(Blocks.ripple, "Orbits you and fires a wide ring of shells all around you when you shoot.");
+        intro.put(Blocks.ripple, "Orbits you and, while you shoot, shells your cursor: the blasts land in the middle first and then ripple outward in widening circles.");
         intro.put(Blocks.tsunami, "Orbits you and blasts Water wherever you shoot, shoving enemies far back.");
         intro.put(Blocks.parallax, "Orbits you and, while you shoot, grabs the enemy nearest your aim, slowing it and pushing it away.");
         intro.put(Blocks.segment, "Orbits you and shoots down enemy bullets on its own.");
@@ -510,13 +523,13 @@ public class Weapons{
             shots(1),
             step("Overload: +100% damage", s -> s.damage += 1f)
         );
-        define(Blocks.swarmer, 160f,
-            shots(1),
+        define(Blocks.swarmer, 400f,
+            streams(1),
             loads(Items.pyratite, "burning missiles"),
             blast(40),
             water(),
             loads(Items.surgeAlloy, "missiles throw lightning"),
-            shots(2),
+            streams(1),
             step("Sharper guidance: missiles turn much harder", s -> s.homing += 0.08f),
             cryo(),
             step("Warheads: +100% damage", s -> s.damage += 1f)
@@ -546,36 +559,36 @@ public class Weapons{
             cryo(),
             step("Shredder: +100% damage", s -> s.damage += 1f)
         );
-        define(Blocks.ripple, 250f,
-            shells(1),
-            loads(Items.silicon, "shells home in on enemies"),
+        define(Blocks.ripple, 350f,
+            step("+1 ripple ring", s -> s.shots += 1),
+            damage(50),
             loads(Items.pyratite, "burning shells"),
             water(),
             loads(Items.blastCompound, "huge blasts"),
-            shells(2),
+            step("+1 ripple ring", s -> s.shots += 1),
             loads(Items.plastanium, "shells burst into 15 fragments"),
             cryo(),
             step("Carpet Bombing: +100% damage", s -> s.damage += 1f)
         );
-        define(Blocks.cyclone, 180f,
-            step("+30% whirlwind size", s -> s.blast += 0.3f),
+        define(Blocks.cyclone, 110f,
+            damage(50),
             new Step("Blast Compound ammo: explosive bursts, +50% damage", Items.blastCompound, s -> {
                 s.ammo = Items.blastCompound;
                 s.damage += 0.5f;
             }),
-            force(60, "pull"),
-            water(),
+            step("+30% wider rings", s -> s.blast += 0.3f),
+            damage(50),
             new Step("Plastanium ammo: bursts throw fragments", Items.plastanium, s -> {
                 s.ammo = Items.plastanium;
                 s.frag += 4;
             }),
-            step("+30% whirlwind size", s -> s.blast += 0.3f),
+            damage(100),
             new Step("Surge Alloy ammo: bursts throw lightning", Items.surgeAlloy, s -> {
                 s.ammo = Items.surgeAlloy;
                 s.lightning += 2;
             }),
-            cryo(),
-            step("Twin Cyclones: a second whirlwind circles the first, +50% damage", s -> {
+            damage(100),
+            step("Twin Rings: a second ring right behind the first, +50% damage", s -> {
                 s.shots += 1;
                 s.damage += 0.5f;
             })

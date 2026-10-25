@@ -72,13 +72,22 @@ public class Survivor{
     static int shotDown;
     static final Seq<Unit>[] held = new Seq[maxWeapons];
     static final Seq<Pool> liquidPools = new Seq<>();
+    static final IntMap<Unit> seekTargets = new IntMap<>();
+    static final Seq<LaserRing> laserRings = new Seq<>();
+    static final float laserReload = 30f, laserSpeed = 4f, laserGrow = 1.4f, laserWidth = 4f, laserGap = 12f, rippleReload = 90f, rippleStep = 3f * tilesize, rippleDelay = 10f;
+    static @Nullable BulletType laserShot, rippleShot;
+    static int laserShotLevel = -1, rippleShotLevel = -1;
+
+    static class LaserRing{
+        float x, y, vx, vy, r = 4f, grow, life, maxLife, delay, damage;
+        int lightning;
+        final Color color = new Color();
+        final IntSet hit = new IntSet();
+    }
+    static final float seekDelay = 12f;
+    static final int seekEvery = 12;
+    static long frame;
     static final float poolReload = 45f, poolRadius = 3f * tilesize, poolLife = 4f * 60f, strikeRadius = 3f * tilesize;
-    static final float windBase = 3.5f * tilesize, windSpeed = 7f, windPulse = 20f, windPull = 70f, windSpin = 6f;
-    static final int windRing = 8;
-    static final Seq<Bullet> windBullets = new Seq<>();
-    static float windX, windY, windPower, windRadius;
-    static int windCount = 1, windShotLevel = -1;
-    static @Nullable BulletType windShot;
 
     static class Pool{
         float x, y, radius, life, maxLife, dps, tick;
@@ -268,7 +277,9 @@ public class Survivor{
         }
         if(Weapons.ring.containsKey(t)){
             int n = Weapons.ring.get(t, 1) + Weapons.ringShellsPerShot * (spec.shots + level(amount));
-            w.shoot = new ShootSpread(n, 360f / n);
+            int extra = spec.shots + level(amount);
+            w.shoot = t == Blocks.swarmer ? new ShootArms(Weapons.ring.get(t, 3) + extra, armTurn)
+                : new ShootSpread(n, 360f / n);
         }else{
             ShootPattern base = t.shoot.copy();
             if(spec.barrels > 0 && base instanceof ShootAlternate alt){
@@ -281,6 +292,23 @@ public class Survivor{
         w.region = w.heatRegion = w.cellRegion = w.outlineRegion = Core.atlas.find("mindustry-survivors-none");
         Score.claim(b, t.name);
         return w;
+    }
+
+    static final float armTurn = 15f;
+
+    static class ShootArms extends ShootPattern{
+        final float turn;
+
+        ShootArms(int arms, float turn){
+            this.shots = arms;
+            this.turn = turn;
+        }
+
+        @Override
+        public void shoot(int volley, BulletHandler handler, @Nullable Runnable barrelIncrementer){
+            for(int k = 0; k < shots; k++) handler.shoot(0, 0, volley * turn + k * 360f / shots, firstShotDelay);
+            if(barrelIncrementer != null) barrelIncrementer.run();
+        }
     }
 
     //extra shots split each shot into a fan around the aim instead of firing more down the same line
@@ -333,9 +361,8 @@ public class Survivor{
         magY.clear();
         for(Pool p : liquidPools) dry(p);
         liquidPools.clear();
-        windPower = 0f;
-        windShotLevel = -1;
-        windBullets.clear();
+        laserRings.clear();
+        laserShotLevel = rippleShotLevel = -1;
         Score.reset();
         spawned = false;
         if(ownWeapons != null) Chase.walker.weapons.set(ownWeapons);
@@ -360,10 +387,68 @@ public class Survivor{
         if(run == null) return;
         int gained = jumpGain(wave);
         run.level += gained;
-        run.pendingPicks += gained;
+        if(ownedGuns.isEmpty() && ownedPassives.isEmpty()){
+            run.pendingPicks += gained;
+        }else{
+            int left = gained;
+            boolean grew = true;
+            while(left > 0 && grew){
+                grew = false;
+                for(Gun gun : ownedGuns){
+                    if(left > 0 && gunLevel.get(gun, 1) < weaponLevels){
+                        gunLevel.increment(gun);
+                        left--;
+                        grew = true;
+                    }
+                }
+                for(Passive passive : ownedPassives){
+                    if(left > 0 && level(passive) < passive.maxLevel){
+                        passiveLevel.increment(passive);
+                        left--;
+                        grew = true;
+                    }
+                }
+            }
+            if(level(luck) >= 5) maxedBonus += left * maxedDamage;
+            offer.clear();
+            rebuild();
+        }
         Unit me = player.unit();
         if(me != null && !me.dead) me.heal();
-        Log.info("[Survivors] Admin jump to wave @: +@ levels, now level @", wave, gained, run.level);
+        Log.info("[Survivors] Admin jump to wave @: +@ levels, now level @, loadout @", wave, gained, run.level,
+            ownedGuns.map(g -> g.turret.name + ":" + gunLevel.get(g, 1)).add(ownedPassives.map(p -> p.id + ":" + level(p))));
+    }
+
+    public static void adminToggle(Gun gun){
+        if(has(gun)){
+            ownedGuns.remove(gun);
+            gunLevel.remove(gun, 0);
+        }else if(ownedGuns.size < maxWeapons){
+            ownedGuns.add(gun);
+            gunLevel.put(gun, 1);
+        }
+        offer.clear();
+        rebuild();
+    }
+
+    public static void adminToggle(Passive passive){
+        if(level(passive) > 0){
+            ownedPassives.remove(passive);
+            passiveLevel.remove(passive, 0);
+        }else if(ownedPassives.size < maxPassives){
+            ownedPassives.add(passive);
+            passiveLevel.put(passive, 1);
+        }
+        offer.clear();
+        rebuild();
+    }
+
+    public static void skipPick(){
+        SurvivorsRun run = SurvivorsRun.current;
+        if(run == null || run.pendingPicks <= 0) return;
+        run.pendingPicks--;
+        offer.clear();
+        Log.info("[Survivors] Skipped a level-up pick");
     }
 
     public static void begin(int x, int y){
@@ -536,11 +621,25 @@ public class Survivor{
         }
 
         updatePools(me);
+        updateLaserRings(me);
 
         missilePower.damageMultiplier = Weapons.missileDamage * stats.damageMultiplier;
         for(Unit u : me.team.data().units){
             if(u.type instanceof MissileUnitType && !u.hasEffect(missilePower)) u.apply(missilePower, 60f * 30f);
         }
+
+        frame++;
+        for(Bullet b : Groups.bullet){
+            float turn = b.owner == me ? Weapons.seekTurn.get(b.type, 0f) : 0f;
+            if(turn <= 0f || b.time < seekDelay) continue;
+            Unit target = seekTargets.get(b.id);
+            if(target == null || !target.isValid() || (b.id + frame) % seekEvery == 0){
+                target = Units.closestEnemy(me.team, b.x, b.y, Weapons.seekRange, u -> u.targetable(me.team));
+                seekTargets.put(b.id, target);
+            }
+            if(target != null) b.vel.setAngle(Angles.moveToward(b.rotation(), b.angleTo(target), turn * Time.delta * 50f));
+        }
+        if(frame % 600 == 0) seekTargets.clear();
 
         orbit += orbitSpeed * Time.delta;
         int own = ownWeapons == null ? 0 : ownWeapons.size, n = Chase.walker.weapons.size - own;
@@ -625,6 +724,24 @@ public class Survivor{
             Lines.stroke(2f, Tmp.c1.set(p.liquid.color).lerp(Color.white, 0.3f).a((0.6f + Mathf.absin(Time.time, 6f, 0.3f)) * fade));
             Lines.circle(p.x, p.y, p.radius);
         }
+        Draw.z(Layer.bullet);
+        for(LaserRing ring : laserRings){
+            if(ring.delay > 0f) continue;
+            float fade = Mathf.clamp(ring.life / 12f) * Mathf.clamp((ring.maxLife - ring.life) / 4f);
+            int sides = Math.max(24, (int)(ring.r / 2f));
+            Draw.color(Tmp.c1.set(ring.color).a(0.4f));
+            Lines.stroke(laserWidth * 2.2f * fade);
+            Lines.poly(ring.x, ring.y, sides, ring.r);
+            Draw.color(ring.color);
+            Lines.stroke(laserWidth * 1.1f * fade);
+            Lines.poly(ring.x, ring.y, sides, ring.r);
+            Draw.color(Color.white);
+            Lines.stroke(laserWidth * 0.45f * fade);
+            Lines.poly(ring.x, ring.y, sides, ring.r);
+            Drawf.light(ring.x, ring.y, ring.r * 1.6f, ring.color, 0.6f * fade);
+        }
+        Draw.reset();
+        Draw.z(Layer.groundUnit - 1f);
         float pad = 16f;
         float left = Core.camera.position.x - Core.camera.width / 2f - pad, right = left + Core.camera.width + pad * 2f;
         float bottom = Core.camera.position.y - Core.camera.height / 2f - pad, top = bottom + Core.camera.height + pad * 2f;
@@ -735,61 +852,63 @@ public class Survivor{
             arc.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
         }else if(gun.turret == Blocks.cyclone){
             Turret cyc = (Turret)gun.turret;
-            boolean on = me.isShooting(), fresh = windPower <= 0.001f;
-            windPower = Mathf.approachDelta(windPower, on ? 1f : 0f, on ? 0.05f : 0.03f);
-            Tmp.v1.set(me.aimX(), me.aimY()).sub(me).limit(Weapons.reach(cyc) * spec.range).add(me);
-            if(fresh){
-                windX = Tmp.v1.x;
-                windY = Tmp.v1.y;
-            }
-            if(!on){
-                windBullets.clear();
-                return;
-            }
-            Tmp.v2.set(Tmp.v1).sub(windX, windY).limit(windSpeed * Time.delta);
-            windX += Tmp.v2.x;
-            windY += Tmp.v2.y;
-            windRadius = windBase * (spec.blast + 0.2f * level(area));
-            windCount = beams;
-            aim[i] = Angles.angle(mx, my, windX, windY);
+            float interval = laserReload * spec.reload * spec.cool * (1f - 0.12f * level(cooldown));
+            if((pointReload[i] += Time.delta) < interval || !me.isShooting()) return;
+            pointReload[i] = 0f;
             int level = gunLevel.get(gun, 1);
-            if(windShot == null || windShotLevel != level){
-                windShot = Weapons.make(cyc, spec);
-                windShot.collidesTiles = false;
-                Score.claim(windShot, cyc.name);
-                windShotLevel = level;
+            if(laserShot == null || laserShotLevel != level){
+                laserShot = Weapons.make(cyc, spec);
+                Score.claim(laserShot, cyc.name);
+                laserShotLevel = level;
             }
-            float radius = windRadius * (0.4f + 0.6f * windPower), pull = windPull * spec.force * windPower;
-            float interval = windPulse * spec.reload * spec.cool * (1f - 0.12f * level(cooldown));
-            boolean refill = (pointReload[i] += Time.delta) >= interval;
-            if(refill) pointReload[i] = 0f;
-            windBullets.setSize(windCount * windRing);
-            float spin = Time.time * windSpin;
-            for(int w = 0; w < windCount; w++){
-                float cx = windX(w), cy = windY(w);
-                Units.nearbyEnemies(me.team, cx, cy, radius * 1.6f, u -> {
-                    float d = u.dst(cx, cy);
-                    if(d < 2f || d > radius * 1.6f) return;
-                    u.impulse(Tmp.v3.set(cx - u.x, cy - u.y).setLength(pull * (1f - d / (radius * 3.2f)) * Time.delta));
-                });
-                for(int k = 0; k < windRing; k++){
-                    int slot = w * windRing + k;
-                    float angle = spin * (w % 2 == 0 ? 1f : -1f) + k * 360f / windRing;
-                    float reach = radius * (0.2f + 0.8f * Mathf.absin(Time.time + k * 20f, 14f, 1f));
-                    float x = cx + Angles.trnsx(angle, reach), y = cy + Angles.trnsy(angle, reach);
-                    Bullet b = windBullets.get(slot);
-                    if(b == null || !b.isAdded() || b.type != windShot){
-                        if(!refill) continue;
-                        b = windShot.create(me, me.team, x, y, angle + 90f);
-                        windBullets.set(slot, b);
-                    }
-                    b.set(x, y);
-                    b.vel.trns(angle + (w % 2 == 0 ? 90f : -90f), Math.max(windShot.speed, 1f));
-                    b.rotation(b.vel.angle());
-                    if(b.fdata >= 0f) b.time = 0f;
+            float angle = Angles.angle(mx, my, me.aimX(), me.aimY());
+            aim[i] = angle;
+            float damage = Weapons.niche.get(cyc, 0f) * spec.damage * Weapons.globalDamage * me.damageMultiplier * interval / 60f;
+            float life = Weapons.reach(cyc) * spec.range / laserSpeed;
+            int rings = 1 + spec.shots + level(amount);
+            for(int r = 0; r < rings; r++){
+                LaserRing ring = new LaserRing();
+                ring.x = mx;
+                ring.y = my;
+                ring.vx = Angles.trnsx(angle, laserSpeed);
+                ring.vy = Angles.trnsy(angle, laserSpeed);
+                ring.grow = laserGrow * (spec.blast + 0.2f * level(area));
+                ring.life = ring.maxLife = life;
+                ring.delay = r * laserGap;
+                ring.damage = damage;
+                ring.lightning = spec.lightning;
+                ring.color.set(Weapons.ammo(cyc, spec.ammo).hitColor);
+                laserRings.add(ring);
+            }
+            Sounds.shootLancer.at(mx, my, Mathf.random(1.1f, 1.3f), 0.5f);
+        }else if(gun.turret == Blocks.ripple){
+            Turret rip = (Turret)gun.turret;
+            float interval = rippleReload * spec.reload * spec.cool * (1f - 0.12f * level(cooldown));
+            if((pointReload[i] += Time.delta) < interval || !me.isShooting()) return;
+            pointReload[i] = 0f;
+            int level = gunLevel.get(gun, 1);
+            if(rippleShot == null || rippleShotLevel != level){
+                rippleShot = Weapons.make(rip, spec);
+                Score.claim(rippleShot, rip.name);
+                rippleShotLevel = level;
+            }
+            BulletType shell = rippleShot;
+            Tmp.v1.set(me.aimX(), me.aimY()).sub(mx, my).limit(Weapons.reach(rip) * spec.range).add(mx, my);
+            float cx = Tmp.v1.x, cy = Tmp.v1.y, step = rippleStep * (spec.blast + 0.2f * level(area));
+            aim[i] = Angles.angle(mx, my, cx, cy);
+            int rings = 3 + spec.shots + level(amount);
+            for(int k = 0; k < rings; k++){
+                int count = k == 0 ? 1 : 5 * k;
+                for(int j = 0; j < count; j++){
+                    float a = j * 360f / count + k * 17f, tx = cx + Angles.trnsx(a, k * step), ty = cy + Angles.trnsy(a, k * step);
+                    Time.run(k * rippleDelay, () -> {
+                        if(!me.isValid()) return;
+                        float dist = Mathf.dst(me.x, me.y, tx, ty);
+                        shell.create(me, me.team, me.x, me.y, Angles.angle(me.x, me.y, tx, ty), 1f, Mathf.clamp(dist / Math.max(shell.speed * shell.lifetime, 1f), 0.05f, 4f));
+                    });
                 }
             }
-            if(refill) cyc.shootSound.at(windX, windY, Mathf.random(0.9f, 1.1f), 0.4f);
+            rip.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
         }else if(gun.turret instanceof PointDefenseTurret point){
             float reload = point.reload * spec.reload / Weapons.globalFireRate * (1f - 0.12f * level(cooldown));
             if((pointReload[i] += Time.delta) < reload) return;
@@ -813,12 +932,28 @@ public class Survivor{
         }
     }
 
-    static float windX(int w){
-        return w == 0 ? windX : windX + Angles.trnsx(Time.time * 2f + w * 360f / Math.max(windCount - 1, 1), windRadius * 1.9f);
-    }
-
-    static float windY(int w){
-        return w == 0 ? windY : windY + Angles.trnsy(Time.time * 2f + w * 360f / Math.max(windCount - 1, 1), windRadius * 1.9f);
+    static void updateLaserRings(Unit me){
+        for(int i = laserRings.size - 1; i >= 0; i--){
+            LaserRing ring = laserRings.get(i);
+            if(ring.delay > 0f){
+                ring.delay -= Time.delta;
+                continue;
+            }
+            ring.x += ring.vx * Time.delta;
+            ring.y += ring.vy * Time.delta;
+            ring.r += ring.grow * Time.delta;
+            if((ring.life -= Time.delta) <= 0f){
+                laserRings.remove(i);
+                continue;
+            }
+            Units.nearbyEnemies(me.team, ring.x, ring.y, ring.r + laserWidth * 2f, u -> {
+                if(Math.abs(u.dst(ring.x, ring.y) - ring.r) > laserWidth + u.hitSize / 2f || !ring.hit.add(u.id)) return;
+                Score.direct(Blocks.cyclone.name, u, ring.damage);
+                Fx.hitLancer.at(u.x, u.y, 0f, ring.color);
+                if(laserShot != null && laserShot.fragBullet != null) for(int k = 0; k < laserShot.fragBullets; k++) laserShot.fragBullet.create(me, me.team, u.x, u.y, Mathf.random(360f));
+                for(int k = 0; k < ring.lightning; k++) Lightning.create(Score.lightning(Blocks.cyclone.name), me.team, ring.color, ring.damage * 0.3f, u.x, u.y, Mathf.random(360f), 8);
+            });
+        }
     }
 
     static void updatePools(Unit me){

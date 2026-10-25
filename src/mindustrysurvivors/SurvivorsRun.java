@@ -86,7 +86,7 @@ public class SurvivorsRun{
 
     public static float xpFor(int level){
         float mid = Math.max(level - 10, 0), late = Math.max(level - 50, 0);
-        return 5f + 10f * level + 0.15f * mid * mid + 1.5f * late * late;
+        return 5f + 10f * level + 0.25f * mid * mid + 1.5f * late * late;
     }
 
     public float xpProgress(){

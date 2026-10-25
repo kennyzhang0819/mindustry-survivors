@@ -23,7 +23,7 @@ import static mindustry.Vars.*;
 
 public class Bosses{
     public static final int bossEvery = 25, chestPicks = 3;
-    static final float groundHealth = 97500f, airHealth = 450000f, groundScale = 1.8f, airScale = 1.6f, bossDamage = 1.5f, minHealthScale = 2.5f, hasteEvery = 30f * 60f;
+    static final float groundHealth = 65000f, airHealth = 400000f, groundScale = 1.8f, airScale = 1.6f, bossDamage = 1.5f, minHealthScale = 2.5f, hasteEvery = 30f * 60f;
     static final float slamPeriod = 5f * 60f, groundSummonPeriod = 12f * 60f, spiralPeriod = 4f * 60f, enragedSpiralPeriod = 2.5f * 60f, airSummonPeriod = 8f * 60f;
     static final Color chestGlow = Color.valueOf("ffd37f");
 

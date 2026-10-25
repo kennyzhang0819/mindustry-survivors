@@ -272,9 +272,22 @@ public class Chase{
             me0 == null ? "none" : me0.type.name, me0 != null && me0.isFlying(), UnitTypes.dagger.physics,
             UnitTypes.fortress.weapons.first().bullet.collidesAir, UnitTypes.flare.targetGround && UnitTypes.flare.weapons.first().bullet.collidesGround);
         float cx = world.unitWidth() / 2f, cy = world.unitHeight() / 2f, radius = 70f * tilesize;
+        String give = System.getenv("SURVIVORS_TEST_GIVE");
+        if(give != null && !give.isEmpty()){
+            for(String entry : give.split(",")){
+                String[] parts = entry.split(":");
+                Survivor.Gun gun = Survivor.guns.find(g -> g.turret.name.equals(parts[0]));
+                for(int i = 0; i < (parts.length > 1 ? Strings.parseInt(parts[1], 1) : 1); i++) Survivor.give(gun);
+            }
+            Log.info("[Survivors-Test] Chase loadout: @", Survivor.ownedGuns.map(g -> g.turret.name + ":" + Survivor.gunLevel.get(g, 0)));
+        }
         Events.run(Trigger.update, () -> {
             Unit me = player.unit();
             if(me == null || !Arena.active()) return;
+            if(give != null && !give.isEmpty()){
+                player.shooting = me.isShooting = true;
+                me.aim(cx, cy);
+            }
             angle += 2.2f / radius * Time.delta;
             float nx = cx + Mathf.cos(angle) * radius, ny = cy + Mathf.sin(angle) * radius;
             if(me.canPass(World.toTile(nx), World.toTile(ny))) me.set(nx, ny);

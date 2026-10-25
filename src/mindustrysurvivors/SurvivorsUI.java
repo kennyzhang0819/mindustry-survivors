@@ -5,6 +5,7 @@ import arc.graphics.*;
 import arc.graphics.g2d.*;
 import arc.func.*;
 import arc.math.*;
+import arc.scene.actions.*;
 import arc.scene.ui.*;
 import arc.scene.ui.layout.*;
 import arc.scene.style.*;
@@ -32,6 +33,9 @@ public class SurvivorsUI{
     static final Color curseColor = Color.valueOf("b07ae8");
     static final String adminKey = "mindustry-survivors-admin", heatKey = "mindustry-survivors-heat";
     public Seq<Runnable> offered = new Seq<>();
+    long pickOpenedAt;
+    static final float cardDelay = 0.15f, cardStagger = 0.15f, typeSpeed = 90f;
+    static final long pickLock = 800;
 
     public void init(){
         ui.menufrag.addButton(new MenuButton("Mindustry Survivors", Icon.play, this::showMenu));
@@ -426,6 +430,8 @@ public class SurvivorsUI{
     public void showLevelUp(){
         if(Survivor.offer.isEmpty()) Survivor.offer.set(Survivor.roll());
         pickDialog = new BaseDialog("Level up!");
+        pickOpenedAt = Time.millis();
+        long opened = pickOpenedAt;
         Table c = pickDialog.cont;
         c.add("Pick one.").padBottom(8f).row();
         offered = Survivor.offer.map(choice -> () -> Survivor.take(choice));
@@ -447,17 +453,48 @@ public class SurvivorsUI{
                     TextureRegion stepIcon = choice.stepIcon();
                     card.table(line -> {
                         if(stepIcon != null) line.image(stepIcon).size(32f).padRight(8f).top();
-                        line.add(choice.description()).wrap().width(stepIcon != null ? 160f : 200f);
+                        String full = choice.description();
+                        float start = cardDelay + cardStagger * index + 0.2f;
+                        Label text = line.add("").wrap().width(stepIcon != null ? 160f : 200f).get();
+                        text.update(() -> text.setText(typed(full, (int)((Time.timeSinceMillis(opened) / 1000f - start) * typeSpeed))));
                     });
-                }, cardStyle(color), () -> choose(index)).size(240f, 290f).pad(8f).top();
+                }, cardStyle(color), () -> choose(index)).size(240f, 290f).pad(8f).top().with(b -> {
+                    b.color.a = 0f;
+                    b.actions(Actions.delay(cardDelay + cardStagger * index), Actions.fadeIn(0.25f, Interp.pow2Out));
+                });
             }
         }).row();
+        c.button("Skip", Icon.cancel, () -> {
+            if(offered.isEmpty() || Time.timeSinceMillis(pickOpenedAt) < pickLock) return;
+            offered = new Seq<>();
+            Survivor.skipPick();
+            pickDialog.hide();
+        }).size(200f, 50f).padTop(4f).row();
         c.table(t -> loadout(t, 48f)).padTop(10f);
         pauseWhileShown(pickDialog);
         pickDialog.show();
     }
 
     static final Color passiveColor = Color.valueOf("5c9cff");
+
+    //color tags like [lightgray] are copied whole so a half-typed text never shows a broken tag
+    static String typed(String full, int visible){
+        if(visible <= 0) return "";
+        StringBuilder out = new StringBuilder();
+        int shown = 0;
+        for(int i = 0; i < full.length() && shown < visible; i++){
+            char ch = full.charAt(i);
+            int close = ch == '[' ? full.indexOf(']', i) : -1;
+            if(close > i){
+                out.append(full, i, close + 1);
+                i = close;
+            }else{
+                out.append(ch);
+                shown++;
+            }
+        }
+        return out.toString();
+    }
 
     //a card or slot fill in a dark shade of its type's color, so weapons, passives and heals read apart at a glance
     static Drawable shade(Color color, float brightness){
@@ -498,7 +535,7 @@ public class SurvivorsUI{
     }
 
     public void choose(int index){
-        if(pickDialog == null || index >= offered.size) return;
+        if(pickDialog == null || index >= offered.size || Time.timeSinceMillis(pickOpenedAt) < pickLock) return;
         Runnable pick = offered.get(index);
         //a second click during the close animation must not pick again
         offered = new Seq<>();
@@ -581,11 +618,29 @@ public class SurvivorsUI{
                 dialog.hide();
             });
         }).padBottom(8f).row();
-        c.add("Tap a curse to add or remove it.").color(Color.lightGray).padBottom(4f).row();
+        c.add("Tap a weapon, passive or curse to add or remove it. Jump to a wave levels your weapons and passives up evenly.").color(Color.lightGray).padBottom(4f).row();
 
         c.pane(list -> {
             list.left().defaults().left().pad(2f);
-            list.add("[#" + curseColor + "]Curses").row();
+            list.label(() -> "[accent]Weapons " + Survivor.ownedGuns.size + "/" + Survivor.maxWeapons).row();
+            list.table(row -> {
+                row.left();
+                int i = 0;
+                for(Survivor.Gun gun : Survivor.guns){
+                    adminCell(row, gun.turret.uiIcon, gun.turret.localizedName, Pal.accent, () -> Survivor.has(gun), () -> Survivor.adminToggle(gun));
+                    if(++i % adminPerRow == 0) row.row();
+                }
+            }).row();
+            list.label(() -> "[#" + passiveColor + "]Passives " + Survivor.ownedPassives.size + "/" + Survivor.maxPassives).padTop(8f).row();
+            list.table(row -> {
+                row.left();
+                int i = 0;
+                for(Survivor.Passive passive : Survivor.passives){
+                    adminCell(row, passive.icon.uiIcon, passive.name, passiveColor, () -> Survivor.level(passive) > 0, () -> Survivor.adminToggle(passive));
+                    if(++i % adminPerRow == 0) row.row();
+                }
+            }).row();
+            list.add("[#" + curseColor + "]Curses").padTop(8f).row();
             list.table(row -> {
                 row.left();
                 int i = 0;

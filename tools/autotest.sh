@@ -17,7 +17,7 @@ for spec in "$@"; do
   cp build/MindustrySurvivors.jar "$dir/Mindustry/mods/"
   names+=("$name")
   (
-    APPDATA="$dir" XDG_DATA_HOME="$dir" SURVIVORS_SHOTS="$dir/shots" SURVIVORS_AUTOTEST="$mode" SURVIVORS_DAMAGE_ONLY="$only" \
+    APPDATA="$dir" XDG_DATA_HOME="$dir" SURVIVORS_SHOTS="$dir/shots" SURVIVORS_AUTOTEST="$mode" SURVIVORS_DAMAGE_ONLY="$only" SURVIVORS_TEST_GIVE="$only" \
     SURVIVORS_DEV=1 SURVIVORS_NOMUSIC=1 \
     java -XX:ErrorFile="$dir/hs_err_%p.log" -Duser.language=en -Duser.country=US -jar libs/Mindustry.jar > "$dir/log.txt" 2>&1 &
     pid=$!
