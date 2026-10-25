@@ -30,6 +30,23 @@ public class AutoTest{
     public void begin(){
         Log.info("[Survivors-Test] Autotest started");
         Core.settings.put("backgroundpause", false);
+        Core.settings.put("musicvol", 0);
+        Core.settings.put("sfxvol", 0);
+        Core.settings.put("ambientvol", 0);
+        Core.audio.musicBus.setVolume(0f);
+        Core.audio.soundBus.setVolume(0f);
+        control.sound.uiBus.setVolume(0f);
+        Thread.setDefaultUncaughtExceptionHandler((thread, e) -> Log.err("[Survivors-Test] CRASH on thread " + thread.getName(), e));
+        //the game's error dialogs don't write to the log, so any dialog with the error heading is logged here
+        ObjectSet<Element> seen = new ObjectSet<>();
+        Events.run(Trigger.update, () -> {
+            for(Element e : Core.scene.root.getChildren()){
+                if(!(e instanceof Dialog dialog) || !seen.add(dialog)) continue;
+                Seq<String> texts = new Seq<>();
+                collectText(dialog, texts);
+                if(texts.contains(Core.bundle.get("error.title"))) Log.err("[Survivors-Test] ERROR DIALOG: @", texts.toString(" | "));
+            }
+        });
 
         Events.run(Trigger.uiDrawEnd, () -> {
             if(pendingShot != null){
@@ -51,8 +68,10 @@ public class AutoTest{
             Events.run(Trigger.newGame, () -> later(5f, () -> {
                 SurvivorsRun run = SurvivorsRun.current;
                 Survivor.give(Survivor.guns.first());
-                Survivor.freshStart(21);
+                int before = run.level;
+                Survivor.jumpTo(21);
                 Arena.skipTo(21);
+                Log.info("[Survivors-Test] Jump: level before=@", before);
                 Log.info("[Survivors-Test] Fresh start: wave=@ level=@ picks=@ weapons=@ xp=@", state.wave, run.level, run.pendingPicks, Survivor.ownedGuns.size, (int)run.xp);
                 later(2f, () -> shot("fresh-start"));
                 later(3f, () -> {
@@ -150,6 +169,11 @@ public class AutoTest{
         }
         Log.info("[Survivors-Test] RESULT unknown mode @", mode);
         Core.app.exit();
+    }
+
+    static void collectText(Element e, Seq<String> out){
+        if(e instanceof Label label) out.add(label.getText().toString());
+        if(e instanceof Group group) for(Element child : group.getChildren()) collectText(child, out);
     }
 
     void boss(){
@@ -361,6 +385,7 @@ public class AutoTest{
         later(11.6f, () -> shot("04b-score"));
         later(12f, () -> {
             if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
+            if(player.unit() != null) player.unit().apply(StatusEffects.invincible, 60f * 60f);
             Arena.skipTo(20);
         });
         later(14f, () -> {
@@ -371,8 +396,14 @@ public class AutoTest{
             logic.reset();
             SurvivorsRun.resume();
             later(6f, () -> {
+                Unit u = player.unit();
+                if(u == null){
+                    Log.err("[Survivors-Test] Continued run has no player unit");
+                    Core.app.exit();
+                    return;
+                }
                 Log.info("[Survivors-Test] Continued: active=@ wave=@ player=@ weapons=@ (before @) mounts=@",
-                    SurvivorsRun.active(), state.wave, player.unit().type.name, Survivor.ownedGuns.map(g -> g.turret.name + ":" + Survivor.gunLevel.get(g, 0)), before, player.unit().mounts.length);
+                    SurvivorsRun.active(), state.wave, u.type.name, Survivor.ownedGuns.map(g -> g.turret.name + ":" + Survivor.gunLevel.get(g, 0)), before, u.mounts.length);
                 shot("05-continued");
                 Log.info("[Survivors-Test] Score after continuing: total=@", (int)Score.total());
                 Log.info("[Survivors-Test] Shake in a run: dagger death @ fortress step @ scepter death @ fortress shot @", UnitTypes.dagger.deathShake, UnitTypes.fortress.stepShake, UnitTypes.scepter.deathShake, UnitTypes.fortress.weapons.first().bullet.hitShake);
@@ -419,7 +450,7 @@ public class AutoTest{
         String only = System.getenv("SURVIVORS_DAMAGE_ONLY");
         for(Block block : Weapons.steps.keys()){
             if(!(block instanceof Turret turret)) continue;
-            if(only != null && !Seq.with(only.split(",")).contains(turret.name)) continue;
+            if(only != null && !only.isEmpty() && !Seq.with(only.split(",")).contains(turret.name)) continue;
             for(int level : new int[]{1, 10}){
                 steps.add(() -> measure(turret, level));
             }
@@ -560,10 +591,11 @@ public class AutoTest{
         SurvivorsRun run = SurvivorsRun.current;
         if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
         run.curses.set(Seq.with(Curses.hungryMechs, Curses.mechVirus, Curses.overshields, Curses.armoredSwarms, Curses.leadership, Curses.shieldTowers, Curses.ambush, Curses.speedFreaks));
-        Team enemy = state.rules.waveTeam, team = state.rules.defaultTeam;
-        Building core = team.core();
-        Tile spawn = spawner.getSpawns().first();
-        float sx = spawn.worldx(), sy = spawn.worldy();
+        Team enemy = state.rules.waveTeam;
+        Unit me = player.unit();
+        me.apply(StatusEffects.invincible, 60f * 60f);
+        Survivor.give(Survivor.guns.first());
+        float sx = me.x + 15f * tilesize, sy = me.y;
 
         Unit armored = UnitTypes.dagger.spawn(enemy, sx, sy);
         Unit eater = UnitTypes.mace.spawn(enemy, sx + 16f, sy);
@@ -573,20 +605,13 @@ public class AutoTest{
         Unit shielded = UnitTypes.flare.spawn(enemy, sx + 200f, sy - 200f);
         Unit slowed = UnitTypes.dagger.spawn(enemy, sx + 40f, sy + 40f);
 
-        Tile duoTile = near(core, t -> Build.validPlace(Blocks.duo, team, t.x, t.y, 0) && t.dst(core) > 6 * tilesize);
-        duoTile.setNet(Blocks.duo, team, 0);
-        Tile lancerTile = near(core, t -> Build.validPlace(Blocks.lancer, team, t.x, t.y, 0) && t.dst(core) > 9 * tilesize && t.dst(duoTile) > 4 * tilesize);
-        lancerTile.setNet(Blocks.lancer, team, 0);
-        Tile virusTile = near(core, t -> Build.validPlace(Blocks.duo, team, t.x, t.y, 0) && t.dst(core) > 12 * tilesize && t.dst(duoTile) > 4 * tilesize && t.dst(lancerTile) > 4 * tilesize);
-        virusTile.setNet(Blocks.duo, team, 0);
-
         later(0.5f, () -> {
             Log.info("[Survivors-Test] Armored: dagger armor=@", armored.armor);
             eater.apply(Curses.hungryEffect);
             for(Unit p : prey) p.set(eater.x + 10f, eater.y);
             shielded.shield = 0f;
             slowed.apply(StatusEffects.slow, 600f);
-            Unit carrier = UnitTypes.dagger.spawn(enemy, virusTile.worldx() + 8f, virusTile.worldy());
+            Unit carrier = UnitTypes.dagger.spawn(enemy, me.x + 8f * tilesize, me.y);
             Curses.carriers.add(carrier.id);
             later(0.3f, carrier::kill);
         });
@@ -595,24 +620,17 @@ public class AutoTest{
             float before = follower.health;
             follower.damage(100f);
             Curses.capHit(follower);
-            Log.info("[Survivors-Test] Leadership: guarded=@ hit100 lost=@ ; Overshields: +10 became @ ; Speedy: slowed speedMult=@",
-                Curses.guarded.containsKey(follower.id), before - follower.health, shielded.shield, slowed.speedMultiplier());
-            duoTile.build.kill();
-            lancerTile.build.kill();
+            Log.info("[Survivors-Test] Leadership: guarded=@ hit100 lost=@ leader alive=@ ; Overshields: +10 became @ ; Speedy: slowed speedMult=@",
+                Curses.guarded.containsKey(follower.id), before - follower.health, leader.isAdded(), shielded.shield, slowed.speedMultiplier());
+            Log.info("[Survivors-Test] Virus: a turret is jammed=@", Time.time < Survivor.jammed[0]);
             Curses.raiseTower();
         });
         later(4f, () -> {
-            Building cDuo = duoTile.build, cLancer = lancerTile.build;
             Log.info("[Survivors-Test] Hungry: meals=@ maceMaxHealth=@ preyLeft=@", Curses.meals.get(eater.id, 0), (int)eater.maxHealth, prey[0].isAdded() || prey[1].isAdded());
-            Log.info("[Survivors-Test] Virus: infected=@ duoHealth=@/@", Curses.infected.contains(virusTile.build == null ? -1 : virusTile.build.pos()), virusTile.build == null ? 0 : (int)virusTile.build.health, virusTile.build == null ? 0 : (int)virusTile.build.maxHealth);
-            Log.info("[Survivors-Test] Conquest: duo=@ ammo=@ lancer=@ power=@ efficiency=@",
-                cDuo == null ? "none" : cDuo.team, cDuo instanceof ItemTurret.ItemTurretBuild t ? t.totalAmmo : -1,
-                cLancer == null ? "none" : cLancer.team, cLancer == null || cLancer.power == null ? -1 : cLancer.power.status, cLancer == null ? -1 : cLancer.efficiency);
             Log.info("[Survivors-Test] Shield Towers: towers=@", Curses.towers.size);
             Curses.towers.each(p -> {
                 var f = (mindustry.world.blocks.defense.ForceProjector.ForceBuild)world.build(p);
                 Log.info("[Survivors-Test] Tower at @,@ broken=@ health=@ efficiency=@", f.tileX(), f.tileY(), f.broken, (int)f.maxHealth, f.efficiency);
-                Core.camera.position.set(f.x, f.y);
             });
         });
         later(5f, () -> shot("curses"));
@@ -620,17 +638,6 @@ public class AutoTest{
             Log.info("[Survivors-Test] RESULT curses done");
             Core.app.exit();
         });
-    }
-
-    static @Nullable Tile near(Building core, arc.func.Boolf<Tile> pred){
-        Tile best = null;
-        for(int dx = -45; dx <= 45; dx++){
-            for(int dy = -45; dy <= 45; dy++){
-                Tile t = world.tile(core.tileX() + dx, core.tileY() + dy);
-                if(t != null && pred.get(t) && (best == null || t.dst(core) < best.dst(core))) best = t;
-            }
-        }
-        return best;
     }
 
     static void clickTab(String name){

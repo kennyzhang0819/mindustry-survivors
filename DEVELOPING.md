@@ -20,6 +20,8 @@ Set `SURVIVORS_AUTOTEST=damage` to measure every turret: each one fires for 3 se
 
 Set `SURVIVORS_AUTOTEST=boss` to check both bosses: each one is spawned next to you, hit with slowing and stunning effects (which it should shrug off), and the first is killed so you walk onto its chest. It takes about 25 seconds.
 
+To run several checks at once, each in its own empty data folder, run `tools/autotest.sh arena death fresh damage:duo,hail`. It reports every test that failed: a crash, an error in the log, an error window, a Java crash, or a test that never finished.
+
 Set `SURVIVORS_AUTOTEST=chase` for a stress test: it starts a run, moves your unit in a circle and adds enemies in steps up to 5,000, logging frame times and how many enemies are closing in on you.
 
 ## Pictures

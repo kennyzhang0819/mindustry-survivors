@@ -573,7 +573,7 @@ public class SurvivorsUI{
                 dialog.hide();
             });
             row.button("Skip to a wave", Icon.right, () -> showWaves(dialog, false));
-            row.button("Fresh start at a wave", Icon.refresh, () -> showWaves(dialog, true));
+            row.button("Jump to a wave", Icon.upload, () -> showWaves(dialog, true));
             row.button("+1 level", Icon.up, () -> {
                 run.level++;
                 run.xp = 0f;
@@ -607,17 +607,18 @@ public class SurvivorsUI{
     }
 
     void showWaves(BaseDialog admin, boolean fresh){
-        BaseDialog dialog = new BaseDialog(fresh ? "Fresh start at a wave" : "Skip to a wave");
-        dialog.cont.add(fresh ? "Your build is emptied and you get every level the waves before would have given, if you picked up every gem. Pick your build, then the wave you chose starts." : "Enemies on the map are removed and the wave you pick is sent now.").color(Color.lightGray).wrap().width(860f).padBottom(8f).row();
+        BaseDialog dialog = new BaseDialog(fresh ? "Jump to a wave" : "Skip to a wave");
+        dialog.cont.add(fresh ? "You keep your build and get the levels the skipped waves would have given if you picked up every gem. Each wave shows how many levels you gain." : "Enemies on the map are removed and the wave you pick is sent now.").color(Color.lightGray).wrap().width(860f).padBottom(8f).row();
         dialog.cont.table(grid -> {
             for(int w = 1; w <= Arena.lastWave; w++){
                 int wave = w;
-                grid.button(String.valueOf(w), Styles.cleart, () -> {
+                int gain = fresh ? Survivor.jumpGain(wave) : 0;
+                grid.button(w + (gain > 0 ? " [accent]+" + gain : ""), Styles.cleart, () -> {
                     dialog.hide();
                     admin.hide();
-                    if(fresh) Survivor.freshStart(wave);
+                    if(fresh) Survivor.jumpTo(wave);
                     Arena.skipTo(wave);
-                }).size(80f, 56f).pad(2f);
+                }).size(fresh ? 116f : 80f, 56f).pad(2f);
                 if(w % 10 == 0) grid.row();
             }
         });

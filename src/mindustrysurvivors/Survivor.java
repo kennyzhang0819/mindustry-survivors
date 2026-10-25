@@ -341,26 +341,29 @@ public class Survivor{
         if(ownWeapons != null) Chase.walker.weapons.set(ownWeapons);
     }
 
-    public static void freshStart(int wave){
+    static int levelsFor(float xp){
+        int level = 0;
+        xp *= xpRate;
+        while(xp >= SurvivorsRun.xpFor(level)){
+            xp -= SurvivorsRun.xpFor(level);
+            level++;
+        }
+        return level;
+    }
+
+    public static int jumpGain(int wave){
+        return Math.max(levelsFor(Arena.earnedXp(wave)) - levelsFor(Arena.earnedXp(state.wave)), 0);
+    }
+
+    public static void jumpTo(int wave){
         SurvivorsRun run = SurvivorsRun.current;
         if(run == null) return;
-        ownedGuns.clear();
-        gunLevel.clear();
-        ownedPassives.clear();
-        passiveLevel.clear();
-        offer.clear();
-        gemX.clear();
-        gemY.clear();
-        gemValue.clear();
-        gemPulled.clear();
-        maxedBonus = 0f;
-        rebuild();
-        run.xp = 0f;
-        run.level = run.pendingPicks = 0;
-        addXp(Arena.earnedXp(wave));
+        int gained = jumpGain(wave);
+        run.level += gained;
+        run.pendingPicks += gained;
         Unit me = player.unit();
         if(me != null && !me.dead) me.heal();
-        Log.info("[Survivors] Admin fresh start at wave @: level @", wave, run.level);
+        Log.info("[Survivors] Admin jump to wave @: +@ levels, now level @", wave, gained, run.level);
     }
 
     public static void begin(int x, int y){
