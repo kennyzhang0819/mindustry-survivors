@@ -1,6 +1,4 @@
 <p align="center">
-  <img src="icon.png" width="180" alt="Mindustry Survivors icon">
-  <br>
   <img src="art/banner.png" width="720" alt="Mindustry Survivors">
 </p>
 
