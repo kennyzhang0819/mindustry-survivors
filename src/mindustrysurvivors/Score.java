@@ -22,6 +22,7 @@ public class Score{
     static final IntFloatMap lastHp = new IntFloatMap();
     static final ObjectSet<BulletType> shared = new ObjectSet<>();
     static BulletType arcLightning;
+    static final ObjectMap<String, BulletType> lightnings = new ObjectMap<>();
     static @Nullable UnitType lastHitBy;
     static String lastHitHow = "";
     public static @Nullable UnitType killer;
@@ -42,11 +43,18 @@ public class Score{
     }
 
     static BulletType arcLightning(){
-        if(arcLightning == null){
-            arcLightning = Bullets.damageLightning.copy();
-            source.put(arcLightning, Blocks.arc.name);
-        }
+        if(arcLightning == null) arcLightning = lightning(Blocks.arc.name);
         return arcLightning;
+    }
+
+    static BulletType lightning(String key){
+        BulletType type = lightnings.get(key);
+        if(type == null){
+            type = Bullets.damageLightning.copy();
+            source.put(type, key);
+            lightnings.put(key, type);
+        }
+        return type;
     }
 
     static @Nullable String key(@Nullable Bullet b){

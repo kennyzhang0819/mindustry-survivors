@@ -37,6 +37,7 @@ public class Survivor{
     static final float baseMagnet = 5f * tilesize, orbitSpeed = 0.6f, healAmount = 0.3f, turretSize = 12f;
     static Item[] gemItems;
     static final float[] gemSizes = {6f, 7.5f, 9f};
+    static final int[] gemTiers = {20, 100};
 
     public static final Seq<Gun> guns = new Seq<>();
     public static final Seq<Passive> passives = new Seq<>();
@@ -47,7 +48,7 @@ public class Survivor{
     static final ObjectFloatMap<BulletType> missileBoom = new ObjectFloatMap<>(), missileHit = new ObjectFloatMap<>();
     static final ObjectMap<BulletType, BulletType> missileLightning = new ObjectMap<>();
     static boolean missilesTuned;
-    static final float auraDps = 300f, maxedDamage = 0.02f;
+    static final float auraDps = 300f, maxedDamage = 0.01f;
     static final float fanAngle = 7f, liquidFanAngle = 15f;
     static final float baseRegen = 0.01f;
     static float maxedBonus, bulwarkTimer, bulwarkCut, lastSpark;
@@ -59,7 +60,7 @@ public class Survivor{
     public static final ObjectIntMap<Passive> passiveLevel = new ObjectIntMap<>();
     public static final Seq<Choice> offer = new Seq<>();
     static final FloatSeq gemX = new FloatSeq(), gemY = new FloatSeq(), kitX = new FloatSeq(), kitY = new FloatSeq(), magX = new FloatSeq(), magY = new FloatSeq();
-    static final float kitChance = 0.015f, kitHeal = 0.5f, magnetChance = 0.001f;
+    static final float kitChance = 0.015f, kitHeal = 0.5f, magnetChance = 0.001f / 3f;
     static final int maxKits = 5, maxMagnets = 3;
     static final Color magnetGlow = Color.valueOf("f25555");
     static final IntSeq gemValue = new IntSeq();
@@ -72,6 +73,12 @@ public class Survivor{
     static final Seq<Unit>[] held = new Seq[maxWeapons];
     static final Seq<Pool> liquidPools = new Seq<>();
     static final float poolReload = 45f, poolRadius = 3f * tilesize, poolLife = 4f * 60f, strikeRadius = 3f * tilesize;
+    static final float windBase = 3.5f * tilesize, windSpeed = 7f, windPulse = 20f, windPull = 70f, windSpin = 6f;
+    static final int windRing = 8;
+    static final Seq<Bullet> windBullets = new Seq<>();
+    static float windX, windY, windPower, windRadius;
+    static int windCount = 1, windShotLevel = -1;
+    static @Nullable BulletType windShot;
 
     static class Pool{
         float x, y, radius, life, maxLife, dps, tick;
@@ -190,7 +197,7 @@ public class Survivor{
         lifesteal = new Passive("lifesteal", Blocks.mendProjector, "Heals you for 1% of the damage you deal", 5);
         aura = new Passive("aura", Blocks.thoriumReactor, 5, "Enemies within 10 tiles deal 25% less damage and burn for 300 damage per second", "+3 tiles and +75 damage per second");
         growth = new Passive("growth", Blocks.cultivator, "+8% experience", 5);
-        luck = new Passive("luck", Blocks.separator, 5, "Always a fourth choice", "Thorium drops 50% more often", "Thorium and magnets drop twice as often", "Every level-up heals you 10%", "Every level-up also offers +5% damage for the rest of the run");
+        luck = new Passive("luck", Blocks.separator, 5, "Always a fourth choice", "Thorium drops 50% more often", "Thorium and magnets drop twice as often", "Every level-up heals you 10%", "Every level-up also offers +" + Math.round(maxedDamage * 100) + "% damage for the rest of the run");
         Weapons.load();
         gemItems = new Item[]{Items.titanium, Items.plastanium, Items.surgeAlloy};
     }
@@ -263,7 +270,12 @@ public class Survivor{
             int n = Weapons.ring.get(t, 1) + Weapons.ringShellsPerShot * (spec.shots + level(amount));
             w.shoot = new ShootSpread(n, 360f / n);
         }else{
-            w.shoot = fan(t.shoot.copy(), spec.shots + level(amount), t instanceof LiquidTurret ? liquidFanAngle : fanAngle);
+            ShootPattern base = t.shoot.copy();
+            if(spec.barrels > 0 && base instanceof ShootAlternate alt){
+                alt.barrels = alt.shots = spec.barrels;
+                alt.spread = 5f;
+            }
+            w.shoot = fan(base, spec.shots + level(amount), t instanceof LiquidTurret ? liquidFanAngle : fanAngle);
         }
         w.init();
         w.region = w.heatRegion = w.cellRegion = w.outlineRegion = Core.atlas.find("mindustry-survivors-none");
@@ -321,9 +333,34 @@ public class Survivor{
         magY.clear();
         for(Pool p : liquidPools) dry(p);
         liquidPools.clear();
+        windPower = 0f;
+        windShotLevel = -1;
+        windBullets.clear();
         Score.reset();
         spawned = false;
         if(ownWeapons != null) Chase.walker.weapons.set(ownWeapons);
+    }
+
+    public static void freshStart(int wave){
+        SurvivorsRun run = SurvivorsRun.current;
+        if(run == null) return;
+        ownedGuns.clear();
+        gunLevel.clear();
+        ownedPassives.clear();
+        passiveLevel.clear();
+        offer.clear();
+        gemX.clear();
+        gemY.clear();
+        gemValue.clear();
+        gemPulled.clear();
+        maxedBonus = 0f;
+        rebuild();
+        run.xp = 0f;
+        run.level = run.pendingPicks = 0;
+        addXp(Arena.earnedXp(wave));
+        Unit me = player.unit();
+        if(me != null && !me.dead) me.heal();
+        Log.info("[Survivors] Admin fresh start at wave @: level @", wave, run.level);
     }
 
     public static void begin(int x, int y){
@@ -608,7 +645,8 @@ public class Survivor{
         for(int i = 0; i < gemValue.size; i++){
             float x = gemX.get(i), y = gemY.get(i) + Mathf.absin(Time.time + i * 11f, 7f, 1f);
             if(x < left || x > right || y < bottom || y > top) continue;
-            int v = gemValue.get(i), k = v < 5 ? 0 : v < 25 ? 1 : 2;
+            int v = gemValue.get(i), k = 0;
+            while(k < gemTiers.length && v >= gemTiers[k]) k++;
             float r = gemSizes[k];
             Item item = gemItems[k];
             Fill.light(x, y, 12, r * 1.4f, Tmp.c1.set(item.color).a(0.5f), Tmp.c2.set(item.color).a(0f));
@@ -692,6 +730,63 @@ public class Survivor{
                 for(int k = 0; k < 3; k++) Lightning.create(Score.arcLightning(), me.team, Pal.lancerLaser, damage * 0.1f, x, y, Mathf.random(360f), length);
             }
             arc.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
+        }else if(gun.turret == Blocks.cyclone){
+            Turret cyc = (Turret)gun.turret;
+            boolean on = me.isShooting(), fresh = windPower <= 0.001f;
+            windPower = Mathf.approachDelta(windPower, on ? 1f : 0f, on ? 0.05f : 0.03f);
+            Tmp.v1.set(me.aimX(), me.aimY()).sub(me).limit(Weapons.reach(cyc) * spec.range).add(me);
+            if(fresh){
+                windX = Tmp.v1.x;
+                windY = Tmp.v1.y;
+            }
+            if(!on){
+                windBullets.clear();
+                return;
+            }
+            Tmp.v2.set(Tmp.v1).sub(windX, windY).limit(windSpeed * Time.delta);
+            windX += Tmp.v2.x;
+            windY += Tmp.v2.y;
+            windRadius = windBase * (spec.blast + 0.2f * level(area));
+            windCount = beams;
+            aim[i] = Angles.angle(mx, my, windX, windY);
+            int level = gunLevel.get(gun, 1);
+            if(windShot == null || windShotLevel != level){
+                windShot = Weapons.make(cyc, spec);
+                windShot.collidesTiles = false;
+                Score.claim(windShot, cyc.name);
+                windShotLevel = level;
+            }
+            float radius = windRadius * (0.4f + 0.6f * windPower), pull = windPull * spec.force * windPower;
+            float interval = windPulse * spec.reload * spec.cool * (1f - 0.12f * level(cooldown));
+            boolean refill = (pointReload[i] += Time.delta) >= interval;
+            if(refill) pointReload[i] = 0f;
+            windBullets.setSize(windCount * windRing);
+            float spin = Time.time * windSpin;
+            for(int w = 0; w < windCount; w++){
+                float cx = windX(w), cy = windY(w);
+                Units.nearbyEnemies(me.team, cx, cy, radius * 1.6f, u -> {
+                    float d = u.dst(cx, cy);
+                    if(d < 2f || d > radius * 1.6f) return;
+                    u.impulse(Tmp.v3.set(cx - u.x, cy - u.y).setLength(pull * (1f - d / (radius * 3.2f)) * Time.delta));
+                });
+                for(int k = 0; k < windRing; k++){
+                    int slot = w * windRing + k;
+                    float angle = spin * (w % 2 == 0 ? 1f : -1f) + k * 360f / windRing;
+                    float reach = radius * (0.2f + 0.8f * Mathf.absin(Time.time + k * 20f, 14f, 1f));
+                    float x = cx + Angles.trnsx(angle, reach), y = cy + Angles.trnsy(angle, reach);
+                    Bullet b = windBullets.get(slot);
+                    if(b == null || !b.isAdded() || b.type != windShot){
+                        if(!refill) continue;
+                        b = windShot.create(me, me.team, x, y, angle + 90f);
+                        windBullets.set(slot, b);
+                    }
+                    b.set(x, y);
+                    b.vel.trns(angle + (w % 2 == 0 ? 90f : -90f), Math.max(windShot.speed, 1f));
+                    b.rotation(b.vel.angle());
+                    if(b.fdata >= 0f) b.time = 0f;
+                }
+            }
+            if(refill) cyc.shootSound.at(windX, windY, Mathf.random(0.9f, 1.1f), 0.4f);
         }else if(gun.turret instanceof PointDefenseTurret point){
             float reload = point.reload * spec.reload / Weapons.globalFireRate * (1f - 0.12f * level(cooldown));
             if((pointReload[i] += Time.delta) < reload) return;
@@ -713,6 +808,14 @@ public class Survivor{
             }
             point.shootSound.at(mx, my, Mathf.random(0.9f, 1.1f));
         }
+    }
+
+    static float windX(int w){
+        return w == 0 ? windX : windX + Angles.trnsx(Time.time * 2f + w * 360f / Math.max(windCount - 1, 1), windRadius * 1.9f);
+    }
+
+    static float windY(int w){
+        return w == 0 ? windY : windY + Angles.trnsy(Time.time * 2f + w * 360f / Math.max(windCount - 1, 1), windRadius * 1.9f);
     }
 
     static void updatePools(Unit me){

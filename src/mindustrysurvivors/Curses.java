@@ -568,7 +568,7 @@ public class Curses{
     }
 
     static void onDeath(Unit unit){
-        if(!SurvivorsRun.active() || unit.team != state.rules.waveTeam || !unit.isEnemy()) return;
+        if(!SurvivorsRun.active() || unit.team != state.rules.waveTeam || !unit.isEnemy() || Bosses.is(unit)) return;
         UnitType type = unit.type;
         float x = unit.x, y = unit.y;
         boolean child = released.remove(unit.id), wasRevived = revived.remove(unit.id);
@@ -614,6 +614,7 @@ public class Curses{
 
         if(on(avenger)){
             Units.nearby(state.rules.waveTeam, x, y, 10f * tilesize, other -> {
+                if(Bosses.is(other)) return;
                 int stacks = avengerStacks.get(other.id, 0);
                 if(stacks >= maxAvenger) return;
                 if(stacks > 0) other.unapply(avengerEffects[stacks - 1]);

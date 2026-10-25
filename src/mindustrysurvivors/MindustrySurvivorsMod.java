@@ -19,6 +19,7 @@ public class MindustrySurvivorsMod extends Mod{
         Chase.register();
         Survivor.register();
         Score.register();
+        Bosses.register();
 
         //only local test launches set SURVIVORS_DEV; weather, the planet's haze and day and night are switched off there, never in the released mod
         Events.on(WorldLoadEvent.class, e -> {
@@ -52,5 +53,6 @@ public class MindustrySurvivorsMod extends Mod{
         Chase.load();
         Survivor.load();
         Curses.load();
+        Bosses.load();
     }
 }

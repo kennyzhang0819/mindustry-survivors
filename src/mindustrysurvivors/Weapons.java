@@ -5,7 +5,10 @@ import arc.struct.*;
 import arc.util.*;
 import mindustry.content.*;
 import mindustry.ctype.*;
+import mindustry.entities.*;
 import mindustry.entities.bullet.*;
+import mindustry.entities.effect.*;
+import mindustry.graphics.*;
 import mindustry.type.*;
 import mindustry.type.unit.*;
 import mindustry.world.*;
@@ -15,7 +18,7 @@ public class Weapons{
     public static final int maxLevel = 10;
     //global turret balance: multipliers on top of the base game's numbers, the same for every turret, before each turret's own balance factor
     public static float globalDamage = 1f, globalFireRate = 2f, globalRange = 1f;
-    public static final float levelDamage = 0.2f;
+    public static final float levelDamage = 0.1f;
     public static final ObjectFloatMap<Block> niche = new ObjectFloatMap<>();
     //extra starting range for turrets whose base game range is too short to keep enemies off the player
     public static final ObjectFloatMap<Block> baseRange = new ObjectFloatMap<>();
@@ -29,11 +32,12 @@ public class Weapons{
     public static final ObjectIntMap<Block> ring = new ObjectIntMap<>();
     public static final int ringShellsPerShot = 4;
     public static float missileDamage = 1f;
+    static Effect breachHit, lancerHit;
 
     public static class Spec{
         public @Nullable UnlockableContent ammo;
         public float damage = 1f, reload = 1f, cool = 1f, range = 1f, speed = 1f, blast = 1f, burn = 1f, force = 1f, puddle = 1f, homing, knock, salvage;
-        public int shots, pierce, frag, lightning, fire;
+        public int shots, pierce, frag, lightning, fire, barrels;
         public @Nullable StatusEffect status;
     }
 
@@ -85,7 +89,7 @@ public class Weapons{
     }
 
     public static boolean support(BaseTurret turret){
-        return turret instanceof TractorBeamTurret || turret instanceof PointDefenseTurret || turret == Blocks.wave || turret == Blocks.arc;
+        return turret instanceof TractorBeamTurret || turret instanceof PointDefenseTurret || turret == Blocks.wave || turret == Blocks.arc || turret == Blocks.cyclone;
     }
 
     public static float hitDamage(BulletType b){
@@ -123,7 +127,7 @@ public class Weapons{
 
     public static float levelOneDps(BaseTurret turret){
         if(support(turret)) return niche.get(turret, 0f) * globalDamage;
-        return (gameDps(turret) > 0f ? gameDps(turret) * balance(turret) : niche.get(turret, 0f)) * globalDamage * globalFireRate * (ring.containsKey(turret) && turret instanceof Turret t ? (float)ring.get(turret, 1) / t.shoot.shots : 1 + spec(turret, 1).shots);
+        return (gameDps(turret) > 0f ? gameDps(turret) * balance(turret) : niche.get(turret, 0f)) * globalDamage * globalFireRate * (ring.containsKey(turret) && turret instanceof Turret t ? (float)ring.get(turret, 1) / t.shoot.shots : (1 + spec(turret, 1).shots) * Math.max(1, spec(turret, 1).barrels));
     }
 
     static @Nullable BulletType fragPiece(){
@@ -165,6 +169,37 @@ public class Weapons{
         }
         if(b.splashDamageRadius > 0f) b.splashDamageRadius *= s.blast;
         if(ring.containsKey(turret)) b.scaleLife = false;
+        if(turret == Blocks.duo && b instanceof BasicBulletType round){
+            round.width *= 1.7f;
+            round.height *= 1.7f;
+            round.trailLength = 5;
+            round.trailWidth = 1.6f;
+            round.trailColor = round.backColor;
+            round.hitEffect = round.despawnEffect = Fx.hitBulletBig;
+        }
+        if(turret == Blocks.salvo && b instanceof BasicBulletType round){
+            round.width *= 1.7f;
+            round.height *= 1.7f;
+            round.trailLength = Math.max(round.trailLength, 4);
+            round.trailWidth = Math.max(round.trailWidth, 1.5f);
+            round.trailColor = round.backColor;
+            round.hitEffect = round.despawnEffect = Fx.hitBulletBig;
+        }
+        if(turret == Blocks.breach && b instanceof BasicBulletType round){
+            round.width *= 2f;
+            round.height *= 2f;
+            round.trailLength *= 2;
+            round.trailWidth *= 2f;
+            if(breachHit == null) breachHit = new MultiEffect(Fx.hitBulletColor, Fx.hitSquaresColor, Fx.colorSparkBig);
+            round.hitEffect = round.despawnEffect = breachHit;
+        }
+        if(turret == Blocks.lancer && b instanceof LaserBulletType laser){
+            laser.width *= 2f;
+            laser.lifetime *= 1.8f;
+            laser.hitColor = Pal.lancerLaser;
+            if(lancerHit == null) lancerHit = new MultiEffect(Fx.hitLancer, Fx.hitLaserBlast);
+            laser.hitEffect = lancerHit;
+        }
         if(turret == Blocks.scatter && b instanceof BasicBulletType flak){
             flak.width *= 1.6f;
             flak.height *= 1.6f;
@@ -312,7 +347,11 @@ public class Weapons{
         slower.put(Blocks.hail, 0.6f);
         slower.put(Blocks.ripple, 0.6f);
         slower.put(Blocks.arc, 3f);
-        innate.put(Blocks.duo, s -> s.speed = 2.2f);
+        innate.put(Blocks.duo, s -> {
+            s.speed = 2.2f;
+            s.barrels = 2;
+            s.pierce = 1;
+        });
         innate.put(Blocks.hail, s -> {
             s.shots = 2;
             s.blast = 1.6f;
@@ -387,6 +426,8 @@ public class Weapons{
             })
         );
         intro.put(Blocks.wave, "Orbits you and throws pools of Water at random spots on screen while you shoot, hurting everything that stands in them.");
+        intro.put(Blocks.duo, "Orbits you and fires twin streams of fast rounds that go through enemies wherever you shoot.");
+        intro.put(Blocks.cyclone, "Orbits you and, while you shoot, spins a whirlwind of flak at your cursor that pulls enemies in and bursts on them.");
         intro.put(Blocks.scatter, "Orbits you and fires a ring of flak in every direction when you shoot.");
         intro.put(Blocks.arc, "Orbits you and calls lightning strikes down on random ground across the screen while you shoot.");
         intro.put(Blocks.ripple, "Orbits you and fires a wide ring of shells all around you when you shoot.");
@@ -394,18 +435,18 @@ public class Weapons{
         intro.put(Blocks.parallax, "Orbits you and, while you shoot, grabs the enemy nearest your aim, slowing it and pushing it away.");
         intro.put(Blocks.segment, "Orbits you and shoots down enemy bullets on its own.");
 
-        define(Blocks.duo, 300f,
+        define(Blocks.duo, 220f,
             reload(25),
             loads(Items.graphite, "heavy rounds, double damage"),
-            damage(50),
+            pierce(1),
             water(),
             loads(Items.silicon, "homing rounds that fire 50% faster"),
-            range(30),
+            damage(50),
             pierce(2),
             cryo(),
-            step("Swarm Doctrine: +50% damage and -33% reload time", s -> {
+            step("Triple Barrel: a third stream and +50% damage", s -> {
+                s.barrels += 1;
                 s.damage += 0.5f;
-                s.reload *= 0.67f;
             })
         );
         define(Blocks.scatter, 170f,
@@ -517,15 +558,24 @@ public class Weapons{
             step("Carpet Bombing: +100% damage", s -> s.damage += 1f)
         );
         define(Blocks.cyclone, 180f,
-            damage(50),
-            loads(Items.blastCompound, "big explosive flak"),
+            step("+30% whirlwind size", s -> s.blast += 0.3f),
+            new Step("Blast Compound ammo: explosive bursts, +50% damage", Items.blastCompound, s -> {
+                s.ammo = Items.blastCompound;
+                s.damage += 0.5f;
+            }),
+            force(60, "pull"),
             water(),
-            loads(Items.plastanium, "flak bursts into fragments"),
-            shots(1),
-            loads(Items.surgeAlloy, "flak throws lightning"),
-            blast(40),
+            new Step("Plastanium ammo: bursts throw fragments", Items.plastanium, s -> {
+                s.ammo = Items.plastanium;
+                s.frag += 4;
+            }),
+            step("+30% whirlwind size", s -> s.blast += 0.3f),
+            new Step("Surge Alloy ammo: bursts throw lightning", Items.surgeAlloy, s -> {
+                s.ammo = Items.surgeAlloy;
+                s.lightning += 2;
+            }),
             cryo(),
-            step("Storm: +1 shot and +50% damage", s -> {
+            step("Twin Cyclones: a second whirlwind circles the first, +50% damage", s -> {
                 s.shots += 1;
                 s.damage += 0.5f;
             })

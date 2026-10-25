@@ -325,6 +325,20 @@ public class Arena{
         Log.info("[Survivors] Admin skipped to wave @", wave);
     }
 
+    public static float earnedXp(int wave){
+        if(SurvivorsRun.current == null) return 0f;
+        float share = enemyScale(difficulty()) * waveScale, total = 0f;
+        for(int w = 1; w < Math.min(wave, lastWave + 1); w++){
+            Family[] dealt = deal(SurvivorsRun.current.id, w);
+            for(int i = 0; i < 15; i++){
+                if(waves[w - 1][i] <= 0) continue;
+                int count = Math.max(1, Math.round(waves[w - 1][i] * share));
+                total += count * Math.max(1, Math.round(dealt[i / 5].tiers[i % 5].health / 130f / enemyScale(difficulty())));
+            }
+        }
+        return total;
+    }
+
     public static Family[] deal(long runId, int wave){
         Rand rand = new Rand(runId * 7919L + wave * 104729L);
         int enemies = Strings.parseInt(state.rules.tags.get(Survivor.enemyTag, "1"), 1);
@@ -347,6 +361,7 @@ public class Arena{
         if((wave > lastWave && !endless()) || SurvivorsRun.current == null) return;
         rampDamage(wave);
         release(scriptWave(wave), 1f);
+        Bosses.onWave(wave);
         if(wave >= lastWave && !endless()) state.rules.waveTimer = false;
     }
 

@@ -257,7 +257,8 @@ public class SurvivorsUI{
             "All enemy stats are unchanged.",
             "There is no core and nothing to build.",
             "Every enemy can hit both ground and air.",
-            "Boats can cross land at half speed.");
+            "Boats can cross land at half speed.",
+            "Bosses spawn every " + Bosses.bossEvery + " waves. They move faster the longer they stay alive.");
     }
 
     static void infoSection(Table t, String title, String... lines){
@@ -571,7 +572,8 @@ public class SurvivorsUI{
                 run.pendingPicks++;
                 dialog.hide();
             });
-            row.button("Skip to a wave", Icon.right, () -> showWaves(dialog));
+            row.button("Skip to a wave", Icon.right, () -> showWaves(dialog, false));
+            row.button("Fresh start at a wave", Icon.refresh, () -> showWaves(dialog, true));
             row.button("+1 level", Icon.up, () -> {
                 run.level++;
                 run.xp = 0f;
@@ -604,15 +606,16 @@ public class SurvivorsUI{
         }, Styles.clearTogglei, toggle).checked(b -> owned.get()).size(150f, 100f).pad(2f);
     }
 
-    void showWaves(BaseDialog admin){
-        BaseDialog dialog = new BaseDialog("Skip to a wave");
-        dialog.cont.add("Enemies on the map are removed and the wave you pick is sent now.").color(Color.lightGray).padBottom(8f).row();
+    void showWaves(BaseDialog admin, boolean fresh){
+        BaseDialog dialog = new BaseDialog(fresh ? "Fresh start at a wave" : "Skip to a wave");
+        dialog.cont.add(fresh ? "Your build is emptied and you get every level the waves before would have given, if you picked up every gem. Pick your build, then the wave you chose starts." : "Enemies on the map are removed and the wave you pick is sent now.").color(Color.lightGray).wrap().width(860f).padBottom(8f).row();
         dialog.cont.table(grid -> {
             for(int w = 1; w <= Arena.lastWave; w++){
                 int wave = w;
                 grid.button(String.valueOf(w), Styles.cleart, () -> {
                     dialog.hide();
                     admin.hide();
+                    if(fresh) Survivor.freshStart(wave);
                     Arena.skipTo(wave);
                 }).size(80f, 56f).pad(2f);
                 if(w % 10 == 0) grid.row();

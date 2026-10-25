@@ -46,6 +46,27 @@ public class AutoTest{
         });
 
         String mode = System.getenv("SURVIVORS_AUTOTEST");
+        if("fresh".equals(mode)){
+            later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
+            Events.run(Trigger.newGame, () -> later(5f, () -> {
+                SurvivorsRun run = SurvivorsRun.current;
+                Survivor.give(Survivor.guns.first());
+                Survivor.freshStart(21);
+                Arena.skipTo(21);
+                Log.info("[Survivors-Test] Fresh start: wave=@ level=@ picks=@ weapons=@ xp=@", state.wave, run.level, run.pendingPicks, Survivor.ownedGuns.size, (int)run.xp);
+                later(2f, () -> shot("fresh-start"));
+                later(3f, () -> {
+                    Log.info("[Survivors-Test] RESULT done");
+                    Core.app.exit();
+                });
+            }));
+            return;
+        }
+        if("boss".equals(mode)){
+            later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
+            Events.run(Trigger.newGame, () -> later(4f, this::boss));
+            return;
+        }
         if("endless".equals(mode)){
             later(2f, () -> SurvivorsRun.startNew());
             Events.run(Trigger.newGame, () -> later(5f, this::endless));
@@ -129,6 +150,80 @@ public class AutoTest{
         }
         Log.info("[Survivors-Test] RESULT unknown mode @", mode);
         Core.app.exit();
+    }
+
+    void boss(){
+        state.rules.waveTimer = false;
+        for(Unit u : state.rules.waveTeam.data().units.copy()) u.remove();
+        Unit me = player.unit();
+        Events.run(Trigger.update, () -> {
+            Unit p = player.unit();
+            if(p != null && !p.dead){
+                p.health = p.maxHealth;
+                p.shield = 1e9f;
+            }
+        });
+        Bosses.spawn(false);
+        later(0.5f, () -> {
+            Unit b = Groups.unit.find(Bosses::is);
+            b.set(me.x + 90f, me.y);
+            b.apply(StatusEffects.freezing, 600f);
+            b.apply(StatusEffects.slow, 600f);
+            b.apply(StatusEffects.disarmed, 600f);
+            b.apply(StatusEffects.wet, 600f);
+        });
+        later(1.5f, () -> {
+            Unit b = Groups.unit.find(Bosses::is);
+            Log.info("[Survivors-Test] Ground boss: type=@ health=@/@ hitSize=@ (base @) bossBar=@ frozen=@ slowed=@ disarmed=@ wet=@ speedMul=@",
+                b.type.name, (int)b.health, (int)b.maxHealth, b.hitSize, b.type.hitSize, state.boss() != null,
+                b.hasEffect(StatusEffects.freezing), b.hasEffect(StatusEffects.slow), b.hasEffect(StatusEffects.disarmed), b.hasEffect(StatusEffects.wet), b.speedMultiplier);
+            shot("boss-ground");
+            Bosses.alive.put(b.id, 60f * 61f);
+        });
+        later(2.5f, () -> {
+            Unit b = Groups.unit.find(Bosses::is);
+            Log.info("[Survivors-Test] Ground boss after 61s alive: haste=@ speedMul=@ damageMul=@ (regular reign health @)", Bosses.haste(b), b.speedMultiplier, b.damageMultiplier, (int)b.type.health);
+            Bosses.alive.put(b.id, 0f);
+        });
+        later(14f, () -> {
+            Log.info("[Survivors-Test] Ground boss after 14s: enemies=@ bullets=@", state.rules.waveTeam.data().units.size, Groups.bullet.count(x -> x.team == state.rules.waveTeam));
+            shot("boss-ground-fight");
+            SurvivorsRun.current.pendingPicks = 0;
+            Unit b = Groups.unit.find(Bosses::is);
+            b.set(player.unit().x + 150f, player.unit().y);
+            b.kill();
+        });
+        later(15f, () -> {
+            int before = SurvivorsRun.current.pendingPicks;
+            Log.info("[Survivors-Test] Ground boss dead: chests=@ picks=@", Bosses.chestX.size, before);
+            shot("boss-chest");
+            SurvivorsRun.current.pendingPicks = 0;
+            if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
+            if(Bosses.chestX.size > 0) player.unit().set(Bosses.chestX.first(), Bosses.chestY.first());
+        });
+        later(15.5f, () -> {
+            Log.info("[Survivors-Test] After chest: chests=@ picks=@", Bosses.chestX.size, SurvivorsRun.current.pendingPicks);
+            SurvivorsRun.current.pendingPicks = 0;
+            if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
+            for(Unit u : state.rules.waveTeam.data().units.copy()) u.remove();
+            Bosses.spawn(true);
+        });
+        later(16f, () -> {
+            Unit b = Groups.unit.find(Bosses::is);
+            Unit p = player.unit();
+            b.set(p.x + 120f, p.y + 40f);
+            b.health = b.maxHealth * 0.4f;
+        });
+        later(20f, () -> {
+            Unit b = Groups.unit.find(Bosses::is);
+            Log.info("[Survivors-Test] Air boss: type=@ health=@/@ hitSize=@ enraged=@ enemies=@ bullets=@", b.type.name, (int)b.health, (int)b.maxHealth, b.hitSize,
+                b.hasEffect(Bosses.enraged), state.rules.waveTeam.data().units.size, Groups.bullet.count(x -> x.team == state.rules.waveTeam));
+            shot("boss-air");
+        });
+        later(21f, () -> {
+            Log.info("[Survivors-Test] RESULT done");
+            Core.app.exit();
+        });
     }
 
     void arena(){
