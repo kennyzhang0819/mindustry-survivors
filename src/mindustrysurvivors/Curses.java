@@ -50,7 +50,7 @@ public class Curses{
     }
 
     public static final Curse
-    speedFreaks = new Curse("speed-freaks", "Speedy", 4, "Enemy units move twice as fast and can't be slowed."),
+    speedFreaks = new Curse("speed-freaks", "Speedy", 4, "Enemy units move 2x as fast and can't be slowed."),
     lifeLeech = new Curse("life-leech", "Bloodthirst", 2, "Enemies heal from the damage they deal."),
     longRange = new Curse("long-range", "Far Sight", 2, "Enemies shoot 50% farther."),
     justDie = new Curse("just-die", "Reconstruction", 3, "Enemy units revive once."),
@@ -64,10 +64,10 @@ public class Curses{
     transmutation = new Curse("transmutation", "Evolution", 2, "Enemy units that hit you may turn into the next tier."),
     aggressiveDeployment = new Curse("aggressive-deployment", "Reinforcements", 3, "Extra enemies arrive between waves."),
     hungryMechs = new Curse("hungry-mechs", "Hungry Mechs", 2, "Some enemy units eat their allies and grow huge."),
-    mechVirus = new Curse("mech-virus", "Mech Virus", 2, "Killing an infected enemy jams one of your turrets for 2 seconds."),
+    mechVirus = new Curse("mech-virus", "Mech Virus", 2, "Killing an infected enemy jams 1 of your turrets for 2 seconds."),
     overshields = new Curse("overshields", "Overshields", 1, "Enemy shields are 5 times as strong."),
     armoredSwarms = new Curse("armored-swarms", "Armored Swarms", 2, "Tier 1 to 3 enemy units get 5 armor."),
-    leadership = new Curse("leadership", "Leadership", 2, "Enemies near a Tier 4 or Tier 5 enemy take at most 10 damage from any one hit."),
+    leadership = new Curse("leadership", "Leadership", 2, "Enemies near a Tier 4 or Tier 5 enemy take at most 10 damage per hit."),
     shieldTowers = new Curse("shield-towers", "Shield Towers", 2, "Enemy shield towers keep appearing near enemy ground units."),
     ambush = new Curse("ambush", "Ambush", 3, "Some enemies arrive right next to you instead of at the edge.");
 

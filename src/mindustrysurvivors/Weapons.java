@@ -280,7 +280,7 @@ public class Weapons{
     }
 
     static Step lasts(float times, String what){
-        return new Step(what + " lasts " + (times == 2f ? "twice" : (int)times + " times") + " as long", null, s -> s.burn *= times);
+        return new Step(what + " lasts " + (int)times + "x as long", null, s -> s.burn *= times);
     }
 
     static Step water(){
@@ -383,10 +383,10 @@ public class Weapons{
             Blocks.spectre, Items.graphite);
         define(Blocks.wave, 300f,
             pools(1),
-            loads(Liquids.oil, "tar pools that slow enemies and make fire burn them much harder"),
+            loads(Liquids.oil, "tar pools that slow enemies and make fire burn harder"),
             step("+50% pool size", s -> s.puddle += 0.5f),
             damage(50),
-            step("Oil Slick: pools last twice as long", s -> s.burn *= 2f),
+            step("Oil Slick: pools last 2x as long", s -> s.burn *= 2f),
             pools(1),
             step("+50% pool size", s -> s.puddle += 0.5f),
             pools(1),
@@ -394,7 +394,7 @@ public class Weapons{
         );
         define(Blocks.tsunami, 90f,
             force(50, "knockback"),
-            loads(Liquids.cryofluid, "freezes enemies, slowing them and weakening their armor"),
+            loads(Liquids.cryofluid, "freezes, slows and weakens enemies"),
             lasts(3f, "Freezing"),
             streams(1),
             range(30),
@@ -427,7 +427,7 @@ public class Weapons{
             reload(30),
             beams(1),
             range(40),
-            step("Hardened: each beam stops twice as much bullet damage", s -> s.damage += 1f),
+            step("Hardened: each beam stops 2x as much bullet damage", s -> s.damage += 1f),
             beams(1),
             reload(30),
             step("Salvage: every bullet shot down heals 0.3% of your health", s -> s.salvage += 0.003f),
@@ -437,27 +437,27 @@ public class Weapons{
                 s.reload *= 0.7f;
             })
         );
-        intro.put(Blocks.wave, "Orbits you and throws pools of Water at random spots on screen while you shoot, hurting everything that stands in them.");
-        intro.put(Blocks.duo, "Orbits you and fires twin streams of fast rounds that go through enemies wherever you shoot.");
-        intro.put(Blocks.cyclone, "Orbits you and, while you shoot, sends laser rings toward your cursor that widen as they fly and burn everything they pass over.");
-        intro.put(Blocks.swarmer, "Orbits you and fires missiles in three turning streams around you that then chase the closest enemy nearby.");
-        intro.put(Blocks.scatter, "Orbits you and fires a ring of flak in every direction when you shoot.");
-        intro.put(Blocks.arc, "Orbits you and calls lightning strikes down on random ground across the screen while you shoot.");
-        intro.put(Blocks.ripple, "Orbits you and, while you shoot, shells your cursor: the blasts land in the middle first and then ripple outward in widening circles.");
-        intro.put(Blocks.tsunami, "Orbits you and blasts Water wherever you shoot, shoving enemies far back.");
-        intro.put(Blocks.parallax, "Orbits you and, while you shoot, grabs the enemy nearest your aim, slowing it and pushing it away.");
-        intro.put(Blocks.segment, "Orbits you and shoots down enemy bullets on its own.");
+        intro.put(Blocks.wave, "Throws damaging pools of Water at random spots.");
+        intro.put(Blocks.duo, "Fires twin streams of fast rounds that go through enemies.");
+        intro.put(Blocks.cyclone, "Shoots laser rings that widen as they fly.");
+        intro.put(Blocks.swarmer, "Fires 3 streams of homing missiles.");
+        intro.put(Blocks.scatter, "Fires a ring of flak in every direction.");
+        intro.put(Blocks.arc, "Summons random lightning strikes.");
+        intro.put(Blocks.ripple, "Bombards an area with rings of blasts that spread outward.");
+        intro.put(Blocks.tsunami, "Blasts Water that shoves enemies far back.");
+        intro.put(Blocks.parallax, "Grabs the nearest enemy, slowing it and pushing it away.");
+        intro.put(Blocks.segment, "Shoots down enemy bullets on its own.");
 
         define(Blocks.duo, 220f,
             reload(25),
-            loads(Items.graphite, "heavy rounds, double damage"),
+            loads(Items.graphite, "heavy rounds, 2x damage"),
             pierce(1),
             water(),
             loads(Items.silicon, "homing rounds that fire 50% faster"),
             damage(50),
             pierce(2),
             cryo(),
-            step("Triple Barrel: a third stream and +50% damage", s -> {
+            step("Triple Barrel: +1 stream and +50% damage", s -> {
                 s.barrels += 1;
                 s.damage += 0.5f;
             })
@@ -471,7 +471,7 @@ public class Weapons{
             damage(50),
             shells(1),
             cryo(),
-            step("Flak Wall: fires twice as fast and hits twice as hard", s -> {
+            step("Flak Wall: fires 2x as fast and hits 2x as hard", s -> {
                 s.reload *= 0.5f;
                 s.damage += 1f;
             })
@@ -481,7 +481,7 @@ public class Weapons{
             damage(50),
             shots(1),
             loads(Items.pyratite, "hotter flames"),
-            step("Burns last twice as long", s -> s.burn *= 2f),
+            step("Burns last 2x as long", s -> s.burn *= 2f),
             range(50),
             step("Wildfire: flames set the ground alight", s -> s.fire += 2),
             shots(1),
@@ -496,7 +496,7 @@ public class Weapons{
             water(),
             shots(1),
             step("Shock Field: each shell throws 3 lightning bolts", s -> s.lightning += 3),
-            step("Meteor: double damage and blast radius", s -> {
+            step("Meteor: 2x damage and blast radius", s -> {
                 s.damage += 1f;
                 s.blast += 1f;
             })
@@ -588,7 +588,7 @@ public class Weapons{
                 s.lightning += 2;
             }),
             damage(100),
-            step("Twin Rings: a second ring right behind the first, +50% damage", s -> {
+            step("Twin Rings: +1 ring right behind the first, +50% damage", s -> {
                 s.shots += 1;
                 s.damage += 0.5f;
             })
@@ -637,21 +637,21 @@ public class Weapons{
         slower.put(Blocks.afflict, 4f);
         slower.put(Blocks.disperse, 2f);
         baseRange.put(Blocks.scathe, 0.3f);
-        intro.put(Blocks.sublimate, "Orbits you and breathes a long flame wherever you shoot, burning through enemies.");
-        intro.put(Blocks.lustre, "Orbits you and holds a burning laser point wherever you aim.");
-        intro.put(Blocks.scathe, "Orbits you and launches a missile that flies to your aim and blows up a whole crowd.");
-        intro.put(Blocks.afflict, "Orbits you and fires a slow electric orb that sprays sparks and bursts at the end.");
-        intro.put(Blocks.malign, "Orbits you and fires homing charges that burst into lasers.");
+        intro.put(Blocks.sublimate, "Breathes a long flame that burns through enemies.");
+        intro.put(Blocks.lustre, "Burns enemies with a laser point.");
+        intro.put(Blocks.scathe, "Launches a missile that blows up a crowd.");
+        intro.put(Blocks.afflict, "Fires a slow electric orb that sprays sparks and bursts on the first enemy it hits.");
+        intro.put(Blocks.malign, "Fires homing charges that burst into lasers.");
 
         define(Blocks.breach, 210f,
             pierce(1),
             water(),
-            loads(Items.tungsten, "harder rounds that go through more enemies and reach further"),
+            loads(Items.tungsten, "rounds that pierce more and reach further"),
             damage(50),
             shots(1),
             cryo(),
             range(30),
-            loads(Items.carbide, "slow, huge rounds that split into 3 piercing shards"),
+            loads(Items.carbide, "huge rounds that split into 3 shards"),
             step("Breakthrough: +1 shot and +50% damage", s -> {
                 s.shots += 1;
                 s.damage += 0.5f;
@@ -663,7 +663,7 @@ public class Weapons{
             loads(Items.silicon, "pellets home in on enemies"),
             water(),
             pierce(1),
-            loads(Items.oxide, "heavy pellets, more than twice the damage"),
+            loads(Items.oxide, "much heavier pellets"),
             reload(40),
             cryo(),
             step("Buckshot: +100% damage and +100% knockback", s -> {
@@ -676,7 +676,7 @@ public class Weapons{
             damage(40),
             pierce(1),
             step("Burning: the flame sets enemies on fire", s -> s.status = StatusEffects.burning),
-            loads(Liquids.cyanogen, "a hotter, longer flame that goes through more enemies"),
+            loads(Liquids.cyanogen, "a hotter, longer, piercing flame"),
             range(20),
             step("Wildfire: the flame sets the ground alight", s -> s.fire += 2),
             damage(60),
@@ -686,7 +686,7 @@ public class Weapons{
             blast(30),
             water(),
             shots(1),
-            loads(Items.oxide, "huge blasts that leave a field hurting enemies for a while"),
+            loads(Items.oxide, "huge blasts that leave a damaging field"),
             range(20),
             cryo(),
             shots(1),
@@ -742,11 +742,11 @@ public class Weapons{
             reload(20),
             water(),
             shots(1),
-            loads(Items.phaseFabric, "slow missiles that carry a force field and blast a wider area"),
+            loads(Items.phaseFabric, "slow missiles with a force field and wider blasts"),
             reload(20),
             cryo(),
             shots(1),
-            loads(Items.surgeAlloy, "missiles split into 5 smaller missiles and throw lightning"),
+            loads(Items.surgeAlloy, "missiles split in 5 and throw lightning"),
             step("Doomsday: +1 missile and +50% damage", s -> {
                 s.shots += 1;
                 s.damage += 0.5f;

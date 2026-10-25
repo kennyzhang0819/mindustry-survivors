@@ -50,20 +50,6 @@ def title():
     banner()
 
 
-def draw_title(c, cx, top, width):
-    k = width / 512
-    for text, y, px, w in (("MINDUSTRY", 0.12, 110, 0.86), ("SURVIVORS", 0.3, 120, 0.94)):
-        t = gold_text(int(px * k), text, int(px * k), width * w)
-        y = top + width * y
-        shadow = Image.new("RGBA", t.size, (16, 0, 4, 0))
-        shadow.putalpha(blur(t.split()[3], 2.5 * k).point(lambda v: min(235, int(v * 1.2))))
-        stamp(c, shadow, cx + 5 * k, y + 7 * k)
-        hal = Image.new("RGBA", t.size, (255, 120, 40, 0))
-        hal.putalpha(blur(t.split()[3], 10 * k).point(lambda v: int(v * 0.5)))
-        stamp(c, hal, cx, y)
-        stamp(c, t, cx, y)
-
-
 def glow(img, pad, r, color, strength, cap):
     a = Image.new("L", (img.width + 2 * pad, img.height + 2 * pad), 0)
     a.paste(img.split()[3], (pad, pad))
@@ -282,7 +268,7 @@ def gold_text(size, text, px, width, tall=1.18, track=-0.045):
 def hero_layer(size, name):
     art = HEROES[name]()
     art = art.crop(art.getbbox())
-    target = size * {"reign": 0.8, "scepter": 0.76, "nova": 0.56, "meltdown": 0.6, "duo": 0.5, "flare": 0.56}[name]
+    target = size * {"reign": 0.8, "scepter": 0.76, "nova": 0.56, "meltdown": 0.6, "duo": 0.62, "flare": 0.56}[name]
     f = target / max(art.width, art.height)
     k = int(math.ceil(f))
     art = outlined(scaled(art, k), k * 2)
@@ -294,7 +280,7 @@ def icon_for(name, size=512, seed=7):
     rng = np.random.default_rng(seed)
     c = background(size, size, rng)
     art = hero_layer(size, name)
-    cx, cy = size / 2, size * 0.7
+    cx, cy = size / 2, size * 0.47
     pad = size // 10
     alpha = Image.new("L", (art.width + 2 * pad, art.height + 2 * pad), 0)
     alpha.paste(art.split()[3], (pad, pad))
@@ -304,8 +290,6 @@ def icon_for(name, size=512, seed=7):
     stamp(c, glow, cx, cy)
     stamp(c, glow, cx, cy)
     stamp(c, art, cx, cy)
-
-    draw_title(c, size / 2, 0, size)
     return c
 
 

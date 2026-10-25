@@ -29,6 +29,8 @@ public class AutoTest{
 
     public void begin(){
         Log.info("[Survivors-Test] Autotest started");
+        var meta = mods.getMod("mindustry-survivors").meta;
+        Log.info("[Survivors-Test] Mod list: subtitle='@' short='@' description lines=@", meta.subtitle, meta.shortDescription(), meta.description.split("\n").length);
         Core.settings.put("backgroundpause", false);
         Core.settings.put("musicvol", 0);
         Core.settings.put("sfxvol", 0);
@@ -134,6 +136,86 @@ public class AutoTest{
             }));
             return;
         }
+        if("menu".equals(mode)){
+            for(int i = 0; i < 3; i++){
+                int index = i;
+                later(2f + i * 0.7f, () -> shot("menu-" + index));
+            }
+            later(5f, () -> {
+                Log.info("[Survivors-Test] RESULT done");
+                Core.app.exit();
+            });
+            return;
+        }
+        if("levelup".equals(mode)){
+            later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
+            Events.run(Trigger.newGame, () -> later(3f, () -> {
+                state.rules.waveTimer = false;
+                if(Core.scene.getDialog() != null) Core.scene.getDialog().hide();
+                Survivor.give(Survivor.luck);
+                Seq<Survivor.Choice> cards = new Seq<>();
+                for(Object pick : new Object[]{Survivor.luck, Blocks.titan, Blocks.wave, Survivor.aura}){
+                    Survivor.Choice c = new Survivor.Choice();
+                    if(pick instanceof Survivor.Passive p) c.passive = p;
+                    else c.gun = Survivor.guns.find(g -> g.turret == pick);
+                    cards.add(c);
+                }
+                Survivor.offer.set(cards);
+                SurvivorsRun.current.pendingPicks = 1;
+                MindustrySurvivorsMod.ui.showLevelUp();
+            }));
+            Events.run(Trigger.newGame, () -> later(6f, () -> shot("levelup")));
+            Events.run(Trigger.newGame, () -> later(6.5f, () -> {
+                int tight = 0;
+                for(Survivor.Gun gun : Survivor.guns){
+                    int had = Survivor.gunLevel.get(gun, 0);
+                    for(int lvl = 0; lvl < Weapons.maxLevel; lvl++){
+                        Survivor.gunLevel.put(gun, lvl);
+                        Survivor.Choice c = new Survivor.Choice();
+                        c.gun = gun;
+                        String text = c.description();
+                        float scale = SurvivorsUI.fitScale(text, c.stepIcon() != null ? 160f : 200f, SurvivorsUI.cardTextHeight);
+                        if(scale < 1f){
+                            tight++;
+                            Log.info("[Survivors-Test] Card too long: @ level @ scale @: @", gun.turret.name, lvl + 1, scale, text.replace("\n", " / "));
+                        }
+                    }
+                    if(had == 0) Survivor.gunLevel.remove(gun, 0);
+                    else Survivor.gunLevel.put(gun, had);
+                }
+                for(Survivor.Passive passive : Survivor.passives){
+                    for(int lvl = 1; lvl <= passive.maxLevel; lvl++){
+                        String text = passive.step(lvl);
+                        float scale = SurvivorsUI.fitScale(text, 200f, SurvivorsUI.cardTextHeight);
+                        if(scale < 1f){
+                            tight++;
+                            Log.info("[Survivors-Test] Card too long: @ level @ scale @: @", passive.name, lvl, scale, text);
+                        }
+                    }
+                }
+                Log.info("[Survivors-Test] Cards that need a smaller font: @", tight);
+            }));
+            Events.run(Trigger.newGame, () -> later(7f, () -> {
+                Log.info("[Survivors-Test] RESULT done");
+                Core.app.exit();
+            }));
+            return;
+        }
+        if("modinfo".equals(mode)){
+            later(2f, () -> {
+                var raw = arc.util.serialization.Jval.read(mods.getMod("mindustry-survivors").root.child("mod.hjson").readString());
+                mindustry.ui.dialogs.BaseDialog dialog = new mindustry.ui.dialogs.BaseDialog(raw.getString("displayName", ""));
+                dialog.cont.pane(p -> p.add(raw.getString("description", "")).width(560f).wrap().left()).grow();
+                dialog.addCloseButton();
+                dialog.show();
+            });
+            later(3.5f, () -> shot("modinfo"));
+            later(4.5f, () -> {
+                Log.info("[Survivors-Test] RESULT done");
+                Core.app.exit();
+            });
+            return;
+        }
         if("boss".equals(mode)){
             later(2f, () -> SurvivorsRun.startNew(Difficulty.eradication, 0));
             Events.run(Trigger.newGame, () -> later(4f, this::boss));
@@ -191,6 +273,8 @@ public class AutoTest{
             later(5.3f, () -> shot("01-database-turrets"));
             later(5.6f, () -> clickTab("Passives"));
             later(6.3f, () -> shot("01-database-passives"));
+            later(6.35f, () -> clickTab("Curses"));
+            later(6.55f, () -> shot("01-database-curses"));
             later(6.6f, () -> Core.scene.getDialog().hide());
             later(6.8f, () -> MindustrySurvivorsMod.ui.showSettings(0));
             later(7.4f, () -> shot("01-settings"));

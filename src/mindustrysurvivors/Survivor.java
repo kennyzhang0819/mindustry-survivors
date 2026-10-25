@@ -175,7 +175,7 @@ public class Survivor{
     public static String intro(BaseTurret turret){
         if(Weapons.intro.containsKey(turret)) return Weapons.intro.get(turret);
         UnlockableContent ammo = Weapons.firstAmmo(turret);
-        return "Orbits you and fires " + (ammo == null ? "" : ammo.localizedName + " ammo ") + "wherever you shoot.";
+        return ammo == null ? "Fires at enemies." : "Fires " + ammo.localizedName + " ammo.";
     }
 
     public static void load(){
@@ -198,15 +198,15 @@ public class Survivor{
         evasion = new Passive("evasion", Blocks.phaseWeaver, "4% chance to dodge a hit", 5);
         magnet = new Passive("magnet", Blocks.unloader, "+40% pickup range", 5);
         armor = new Passive("armor", Blocks.plastaniumWall, "+4 armor and -6% damage taken", 5);
-        shield = new Passive("shield", Blocks.forceProjector, 5, "A force field around you blocks enemy bullets; it holds 15% of your max health and recovers 1.5% of it per second", "+15% of your max health as shield, a bigger field and faster recovery");
+        shield = new Passive("shield", Blocks.forceProjector, 5, "A force field blocks enemy bullets. It holds 15% of your max health and refills 1.5% a second", "+15% of your max health as shield, a bigger field and faster recovery");
         bulwark = new Passive("bulwark", Blocks.titaniumWall, 5, "Take 2.5% less damage for each enemy within 8 tiles, up to 10% less", "Up to 10% more damage reduction from nearby enemies");
-        spark = new Passive("spark", Blocks.surgeWall, 5, "Enemies within 10 tiles take 60% of the damage you take, and hits may throw lightning at them", "+60% damage sent back, more lightning and stronger bolts");
+        spark = new Passive("spark", Blocks.surgeWall, 5, "Enemies within 10 tiles take 60% of the damage you take, and may be hit by lightning", "+60% damage sent back, more lightning and stronger bolts");
         vitality = new Passive("vitality", Blocks.thoriumWall, "+40% max health", 5);
         recovery = new Passive("recovery", Blocks.repairPoint, "Heals 0.5% of your health per second", 5);
         lifesteal = new Passive("lifesteal", Blocks.mendProjector, "Heals you for 1% of the damage you deal", 5);
         aura = new Passive("aura", Blocks.thoriumReactor, 5, "Enemies within 10 tiles deal 25% less damage and burn for 300 damage per second", "+3 tiles and +75 damage per second");
         growth = new Passive("growth", Blocks.cultivator, "+8% experience", 5);
-        luck = new Passive("luck", Blocks.separator, 5, "Always a fourth choice", "Thorium drops 50% more often", "Thorium and magnets drop twice as often", "Every level-up heals you 10%", "Every level-up also offers +" + Math.round(maxedDamage * 100) + "% damage for the rest of the run");
+        luck = new Passive("luck", Blocks.separator, 5, "Always a 4th choice", "Thorium drops 50% more often", "Thorium and magnets drop 2x as often", "Every level-up heals you 10%", "Every level-up also offers +" + Math.round(maxedDamage * 100) + "% damage for the rest of the run");
         Weapons.load();
         gemItems = new Item[]{Items.titanium, Items.plastanium, Items.surgeAlloy};
     }

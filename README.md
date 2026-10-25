@@ -13,11 +13,6 @@ Press **Mindustry Survivors** on the main menu, pick a difficulty and hit **New 
 - Turrets orbit you and fire with you.
 - Up to 6 passives boost you.
 
-## Difficulty and settings
-
-- Easy, Normal, Hard and Eradication change how many enemies show up (you level up about as fast on all of them). Eradication +1 to +3 add curses, random nasty rules for the enemies.
-- In **Settings** you pick which turrets and enemies you get (Serpulo, Erekir or both).
-
 ## Install
 
 - **Easiest:** in the game, open **Mods**, press **Mod Browser**, search for Mindustry Survivors and install it.

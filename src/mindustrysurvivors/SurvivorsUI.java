@@ -34,7 +34,7 @@ public class SurvivorsUI{
     static final String adminKey = "mindustry-survivors-admin", heatKey = "mindustry-survivors-heat";
     public Seq<Runnable> offered = new Seq<>();
     long pickOpenedAt;
-    static final float cardDelay = 0.15f, cardStagger = 0.15f, typeSpeed = 90f;
+    static final float cardDelay = 0.15f, cardStagger = 0.15f, typeSpeed = 90f, cardTextHeight = 115f;
     static final long pickLock = 800;
 
     public void init(){
@@ -71,7 +71,72 @@ public class SurvivorsUI{
         }
     }
 
+    static final String menuLabel = "Mindustry Survivors";
+    static final Color[] menuGlow = {Color.valueOf("5a1018"), Color.valueOf("c8352a"), Color.valueOf("f0b13c")};
+    static final Color menuGold = Color.valueOf("ffd37f");
+    @Nullable TextButton menuButton;
+    @Nullable Image menuIcon;
+    final StringBuilder menuText = new StringBuilder();
+
+    //the game rebuilds its menu buttons whenever the window is resized, so the new button is found and decorated again
+    void animateMenuButton(){
+        if(menuButton == null || menuButton.getScene() == null){
+            menuButton = Core.scene.root.find(e -> e instanceof TextButton b && menuLabel.contentEquals(b.getText()));
+            if(menuButton == null) return;
+            TextButton.TextButtonStyle style = new TextButton.TextButtonStyle(menuButton.getStyle());
+            style.up = menuGradient(0f);
+            style.over = menuGradient(0.3f);
+            style.down = style.checked = menuGradient(0.5f);
+            style.fontColor = Color.white;
+            menuButton.setStyle(style);
+            menuIcon = menuButton.find(e -> e instanceof Image);
+        }
+        if(state.isGame()) return;
+
+        float cycle = Time.globalTime / 60f % 4f;
+        float shine = cycle / 1.6f * (menuLabel.length() + 8) - 4f;
+        menuText.setLength(0);
+        for(int i = 0; i < menuLabel.length(); i++){
+            float glow = Mathf.clamp(1f - Math.abs(i - shine) / 3f);
+            menuText.append("[#").append(Tmp.c1.set(menuGold).lerp(Color.white, glow).toString()).append(']').append(menuLabel.charAt(i) == ' ' ? '\n' : menuLabel.charAt(i));
+        }
+        menuButton.getLabel().setText(menuText);
+
+        if(menuIcon != null){
+            float pulse = Mathf.absin(Time.globalTime, 14f, 1f);
+            menuIcon.setOrigin(Align.center);
+            menuIcon.setScale(1f + 0.12f * pulse);
+            menuIcon.setColor(Tmp.c1.set(Color.white).lerp(menuGold, pulse * 0.6f));
+        }
+    }
+
+    static Drawable menuGradient(float boost){
+        return new BaseDrawable(){
+            @Override
+            public void draw(float x, float y, float width, float height){
+                float alpha = Draw.getColor().a;
+                int strips = 24;
+                for(int i = 0; i < strips; i++){
+                    float u1 = i / (float)strips, u2 = (i + 1f) / strips;
+                    float c1 = menuGlowAt(u1, boost, alpha), c2 = menuGlowAt(u2, boost, alpha);
+                    float x1 = x + width * u1, x2 = x + width * u2;
+                    Fill.quad(x1, y, c1, x2, y, c2, x2, y + height, c2, x1, y + height, c1);
+                }
+                Draw.color(Tmp.c1.set(1f, 1f, 1f, alpha));
+            }
+        };
+    }
+
+    static float menuGlowAt(float u, float boost, float alpha){
+        float wave = (Mathf.sin((u * 1.3f - Time.globalTime / 300f) * Mathf.PI2) + 1f) / 2f;
+        Color c = wave < 0.5f ? Tmp.c2.set(menuGlow[0]).lerp(menuGlow[1], wave * 2f) : Tmp.c2.set(menuGlow[1]).lerp(menuGlow[2], wave * 2f - 1f);
+        c.mul(1f + boost);
+        c.a = alpha * Mathf.lerp(0.85f, 0.15f, u) * (1f + boost * 0.5f);
+        return c.toFloatBits();
+    }
+
     void update(){
+        animateMenuButton();
         hideBuildMenu();
         if(!SurvivorsRun.active()) return;
         if(state.gameOver || Core.scene.hasDialog() || Time.timeSinceMillis(run().loadedAt) < 1000) return;
@@ -127,13 +192,13 @@ public class SurvivorsUI{
             }
             for(int h = 1; h <= SurvivorsRun.maxHeat; h++){
                 int level = h;
-                pick.cont.button(coloredDifficulty(Difficulty.eradication.name(), h), Styles.togglet, () -> {
+                pick.cont.button(coloredDifficulty(Difficulty.eradication.name(), h) + " [lightgray](experimental)", Styles.togglet, () -> {
                     heat[0] = level;
                     Core.settings.put(heatKey, level);
                     pick.hide();
                 }).checked(b -> heat[0] == level).row();
             }
-            pick.cont.add("[#" + curseColor + "]Extra random curses are added.").wrap().width(360f).height(-1f).padTop(6f).row();
+            pick.cont.add("[#" + curseColor + "]Extra random curses are added.\n[lightgray]Curses are experimental and not balanced yet.").wrap().width(360f).height(-1f).padTop(6f).row();
             pick.addCloseButton();
             pick.show();
         }).size(360f, 50f).row();
@@ -261,7 +326,7 @@ public class SurvivorsUI{
             "All enemy stats are unchanged.",
             "There is no core and nothing to build.",
             "Every enemy can hit both ground and air.",
-            "Boats can cross land at half speed.",
+            "Boats can cross land at 50% speed.",
             "Bosses spawn every " + Bosses.bossEvery + " waves. They move faster the longer they stay alive.");
     }
 
@@ -306,7 +371,7 @@ public class SurvivorsUI{
 
     void curseList(Table t){
         t.top().left();
-        t.add("Curses make the enemy stronger. They only come with " + Difficulty.eradication.localized() + " +1 to +4: when the run starts, a few are picked at random, and higher levels get more and harsher ones, never more than " + Curses.maxRolled + ". Each curse is worth points by how harsh it is. Your curses show under the level bar.").wrap().width(860f).color(Color.lightGray).left().padBottom(10f).row();
+        t.add("Curses make the enemy stronger. They are randomly rolled on " + Difficulty.eradication.localized() + " +1 to +" + SurvivorsRun.maxHeat + ".").wrap().width(860f).color(Color.lightGray).left().padBottom(10f).row();
         t.table(rows -> {
             rows.left().defaults().left().pad(4f);
             for(Curses.Curse curse : Curses.all){
@@ -433,7 +498,7 @@ public class SurvivorsUI{
         pickOpenedAt = Time.millis();
         long opened = pickOpenedAt;
         Table c = pickDialog.cont;
-        c.add("Pick one.").padBottom(8f).row();
+        c.add("Pick 1.").padBottom(8f).row();
         offered = Survivor.offer.map(choice -> () -> Survivor.take(choice));
         c.table(row -> {
             for(int i = 0; i < Survivor.offer.size; i++){
@@ -455,8 +520,17 @@ public class SurvivorsUI{
                         if(stepIcon != null) line.image(stepIcon).size(32f).padRight(8f).top();
                         String full = choice.description();
                         float start = cardDelay + cardStagger * index + 0.2f;
-                        Label text = line.add("").wrap().width(stepIcon != null ? 160f : 200f).get();
+                        float width = stepIcon != null ? 160f : 200f, scale = fitScale(full, width, cardTextHeight);
+                        Label room = new Label(full);
+                        room.setWrap(true);
+                        room.setFontScale(scale);
+                        room.color.a = 0f;
+                        Label text = new Label("");
+                        text.setWrap(true);
+                        text.setFontScale(scale);
+                        text.setAlignment(Align.topLeft);
                         text.update(() -> text.setText(typed(full, (int)((Time.timeSinceMillis(opened) / 1000f - start) * typeSpeed))));
+                        line.stack(room, text).width(width).top();
                     });
                 }, cardStyle(color), () -> choose(index)).size(240f, 290f).pad(8f).top().with(b -> {
                     b.color.a = 0f;
@@ -478,6 +552,20 @@ public class SurvivorsUI{
     static final Color passiveColor = Color.valueOf("5c9cff");
 
     //color tags like [lightgray] are copied whole so a half-typed text never shows a broken tag
+    static float fitScale(String text, float width, float height){
+        GlyphLayout layout = new GlyphLayout();
+        float base = Fonts.def.getData().scaleX;
+        float scale = 1f;
+        for(float s : new float[]{1f, 0.9f, 0.8f, 0.72f, 0.65f}){
+            scale = s;
+            Fonts.def.getData().setScale(base * s);
+            layout.setText(Fonts.def, text, Color.white, width, Align.left, true);
+            if(layout.height <= height) break;
+        }
+        Fonts.def.getData().setScale(base);
+        return scale;
+    }
+
     static String typed(String full, int visible){
         if(visible <= 0) return "";
         StringBuilder out = new StringBuilder();
